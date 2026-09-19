@@ -1,0 +1,899 @@
+{
+  "component_count": 30,
+  "components": [
+    {
+      "footprint": "",
+      "lib_id": "Prototype:ESP32_DevKit",
+      "pin_count": 14,
+      "pins": [
+        {
+          "name": "5V",
+          "net": "+5V",
+          "number": "5V",
+          "x": 176.53,
+          "y": 64.77000000000001
+        },
+        {
+          "name": "3V3",
+          "net": "+3V3",
+          "number": "3V3",
+          "x": 176.53,
+          "y": 68.58
+        },
+        {
+          "name": "GND",
+          "net": "GND",
+          "number": "GND",
+          "x": 176.53,
+          "y": 72.39
+        },
+        {
+          "name": "IO1 / ADC",
+          "net": "BAT_ADC",
+          "number": "1",
+          "x": 176.53,
+          "y": 76.2
+        },
+        {
+          "name": "IO11",
+          "net": "BUTTON_1",
+          "number": "11",
+          "x": 176.53,
+          "y": 80.01
+        },
+        {
+          "name": "IO12",
+          "net": "BUTTON_2",
+          "number": "12",
+          "x": 176.53,
+          "y": 83.82000000000001
+        },
+        {
+          "name": "IO15",
+          "net": "NFC_IRQ",
+          "number": "15",
+          "x": 176.53,
+          "y": 87.63
+        },
+        {
+          "name": "IO8 / SDA",
+          "net": "I2C_SDA",
+          "number": "8",
+          "x": 214.63000000000002,
+          "y": 64.77000000000001
+        },
+        {
+          "name": "IO9 / SCL",
+          "net": "I2C_SCL",
+          "number": "9",
+          "x": 214.63000000000002,
+          "y": 68.58
+        },
+        {
+          "name": "IO5 / BCLK",
+          "net": "I2S_BCLK",
+          "number": "5",
+          "x": 214.63000000000002,
+          "y": 72.39
+        },
+        {
+          "name": "IO6 / LRCLK",
+          "net": "I2S_LRC",
+          "number": "6",
+          "x": 214.63000000000002,
+          "y": 76.2
+        },
+        {
+          "name": "IO7 / DIN",
+          "net": "I2S_DIN",
+          "number": "7",
+          "x": 214.63000000000002,
+          "y": 80.01
+        },
+        {
+          "name": "IO10",
+          "net": "OLED_RST",
+          "number": "10",
+          "x": 214.63000000000002,
+          "y": 83.82000000000001
+        },
+        {
+          "name": "IO16",
+          "net": "NFC_VEN",
+          "number": "16",
+          "x": 214.63000000000002,
+          "y": 87.63
+        }
+      ],
+      "reference": "U1",
+      "value": "ESP32-S3 N32R16V"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Prototype:BQ24074_Board",
+      "pin_count": 4,
+      "pins": [
+        {
+          "name": "USB-C / VBUS",
+          "net": "VBUS",
+          "number": "VBUS",
+          "x": 41.91,
+          "y": 57.15
+        },
+        {
+          "name": "BATT / LIPO",
+          "net": "+BATT",
+          "number": "BAT",
+          "x": 41.91,
+          "y": 60.96
+        },
+        {
+          "name": "GND",
+          "net": "GND",
+          "number": "GND",
+          "x": 41.91,
+          "y": 64.77
+        },
+        {
+          "name": "LOAD OUT",
+          "net": "VCC",
+          "number": "OUT",
+          "x": 80.01,
+          "y": 57.15
+        }
+      ],
+      "reference": "U2",
+      "value": "4755 / BQ24074"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Prototype:MiniBoost",
+      "pin_count": 4,
+      "pins": [
+        {
+          "name": "IN",
+          "net": "VCC",
+          "number": "IN",
+          "x": 45.72,
+          "y": 104.14
+        },
+        {
+          "name": "GND",
+          "net": "GND",
+          "number": "GND",
+          "x": 45.72,
+          "y": 109.22000000000001
+        },
+        {
+          "name": "OUT / 5.2V",
+          "net": "+5V",
+          "number": "OUT",
+          "x": 76.2,
+          "y": 104.14
+        },
+        {
+          "name": "EN",
+          "net": "VCC",
+          "number": "EN",
+          "x": 76.2,
+          "y": 109.22000000000001
+        }
+      ],
+      "reference": "U3",
+      "value": "4654 / TPS61023"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Prototype:MAX98357_Board",
+      "pin_count": 9,
+      "pins": [
+        {
+          "name": "VIN",
+          "net": "VCC",
+          "number": "VIN",
+          "x": 45.72,
+          "y": 172.72
+        },
+        {
+          "name": "GND",
+          "net": "GND",
+          "number": "GND",
+          "x": 45.72,
+          "y": 176.53
+        },
+        {
+          "name": "BCLK",
+          "net": "I2S_BCLK",
+          "number": "BCLK",
+          "x": 45.72,
+          "y": 180.34
+        },
+        {
+          "name": "LRC",
+          "net": "I2S_LRC",
+          "number": "LRC",
+          "x": 45.72,
+          "y": 184.15
+        },
+        {
+          "name": "DIN",
+          "net": "I2S_DIN",
+          "number": "DIN",
+          "x": 45.72,
+          "y": 187.96
+        },
+        {
+          "name": "SPK +",
+          "net": "SPK_PLUS",
+          "number": "PLUS",
+          "x": 76.2,
+          "y": 172.72
+        },
+        {
+          "name": "SPK -",
+          "net": "SPK_MINUS",
+          "number": "MINUS",
+          "x": 76.2,
+          "y": 176.53
+        },
+        {
+          "name": "GAIN",
+          "net": "VCC",
+          "number": "GAIN",
+          "x": 76.2,
+          "y": 180.34
+        },
+        {
+          "name": "SD",
+          "net": "~",
+          "number": "SD",
+          "x": 76.2,
+          "y": 184.15
+        }
+      ],
+      "reference": "U4",
+      "value": "3006 / MAX98357A"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Prototype:OLED_FeatherWing",
+      "pin_count": 5,
+      "pins": [
+        {
+          "name": "3V",
+          "net": "+3V3",
+          "number": "3V",
+          "x": 307.34000000000003,
+          "y": 48.260000000000005
+        },
+        {
+          "name": "GND",
+          "net": "GND",
+          "number": "GND",
+          "x": 307.34000000000003,
+          "y": 52.07
+        },
+        {
+          "name": "SDA",
+          "net": "I2C_SDA",
+          "number": "SDA",
+          "x": 307.34000000000003,
+          "y": 55.88
+        },
+        {
+          "name": "SCL",
+          "net": "I2C_SCL",
+          "number": "SCL",
+          "x": 307.34000000000003,
+          "y": 59.690000000000005
+        },
+        {
+          "name": "RST",
+          "net": "OLED_RST",
+          "number": "RST",
+          "x": 307.34000000000003,
+          "y": 63.5
+        }
+      ],
+      "reference": "U5",
+      "value": "4650 / SH1107"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Prototype:PCF8523_Board",
+      "pin_count": 5,
+      "pins": [
+        {
+          "name": "VCC",
+          "net": "+3V3",
+          "number": "VCC",
+          "x": 309.88,
+          "y": 104.14
+        },
+        {
+          "name": "GND",
+          "net": "GND",
+          "number": "GND",
+          "x": 309.88,
+          "y": 106.67999999999999
+        },
+        {
+          "name": "SDA",
+          "net": "I2C_SDA",
+          "number": "SDA",
+          "x": 309.88,
+          "y": 111.76
+        },
+        {
+          "name": "SCL",
+          "net": "I2C_SCL",
+          "number": "SCL",
+          "x": 309.88,
+          "y": 114.3
+        },
+        {
+          "name": "SQW",
+          "net": "~",
+          "number": "SQW",
+          "x": 340.36,
+          "y": 104.14
+        }
+      ],
+      "reference": "U6",
+      "value": "5189 / PCF8523"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Prototype:BH1750_Board",
+      "pin_count": 4,
+      "pins": [
+        {
+          "name": "VIN",
+          "net": "+3V3",
+          "number": "VIN",
+          "x": 307.34000000000003,
+          "y": 149.85999999999999
+        },
+        {
+          "name": "GND",
+          "net": "GND",
+          "number": "GND",
+          "x": 307.34000000000003,
+          "y": 152.4
+        },
+        {
+          "name": "SDA",
+          "net": "I2C_SDA",
+          "number": "SDA",
+          "x": 307.34000000000003,
+          "y": 157.48
+        },
+        {
+          "name": "SCL",
+          "net": "I2C_SCL",
+          "number": "SCL",
+          "x": 307.34000000000003,
+          "y": 160.02
+        }
+      ],
+      "reference": "U7",
+      "value": "4681 / BH1750"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Prototype:Encoder_Board",
+      "pin_count": 5,
+      "pins": [
+        {
+          "name": "VIN",
+          "net": "+3V3",
+          "number": "VIN",
+          "x": 309.88,
+          "y": 200.66
+        },
+        {
+          "name": "GND",
+          "net": "GND",
+          "number": "GND",
+          "x": 309.88,
+          "y": 203.20000000000002
+        },
+        {
+          "name": "SDA",
+          "net": "I2C_SDA",
+          "number": "SDA",
+          "x": 309.88,
+          "y": 208.28
+        },
+        {
+          "name": "SCL",
+          "net": "I2C_SCL",
+          "number": "SCL",
+          "x": 309.88,
+          "y": 210.82000000000002
+        },
+        {
+          "name": "INT",
+          "net": "~",
+          "number": "INT",
+          "x": 340.36,
+          "y": 200.66
+        }
+      ],
+      "reference": "U8",
+      "value": "5880 / seesaw"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Prototype:NFC7_I2C",
+      "pin_count": 7,
+      "pins": [
+        {
+          "name": "3V3 [7]",
+          "net": "+3V3",
+          "number": "7",
+          "x": 176.53,
+          "y": 170.18
+        },
+        {
+          "name": "GND [8]",
+          "net": "GND",
+          "number": "8",
+          "x": 176.53,
+          "y": 173.99
+        },
+        {
+          "name": "SDA [11]",
+          "net": "I2C_SDA",
+          "number": "11",
+          "x": 176.53,
+          "y": 177.8
+        },
+        {
+          "name": "SCL [12]",
+          "net": "I2C_SCL",
+          "number": "12",
+          "x": 176.53,
+          "y": 181.61
+        },
+        {
+          "name": "PWM / VEN [16]",
+          "net": "NFC_VEN",
+          "number": "16",
+          "x": 176.53,
+          "y": 185.42000000000002
+        },
+        {
+          "name": "INT / IRQ [15]",
+          "net": "NFC_IRQ",
+          "number": "15",
+          "x": 214.63000000000002,
+          "y": 170.18
+        },
+        {
+          "name": "GND [9]",
+          "net": "GND",
+          "number": "9",
+          "x": 214.63000000000002,
+          "y": 173.99
+        }
+      ],
+      "reference": "U9",
+      "value": "MIKROE-6453 / PN7160"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Device:Battery_Cell",
+      "pin_count": 2,
+      "pins": [
+        {
+          "name": "+",
+          "net": "+BATT",
+          "number": "1",
+          "x": 22.86,
+          "y": 97.79
+        },
+        {
+          "name": "-",
+          "net": "GND",
+          "number": "2",
+          "x": 22.86,
+          "y": 105.41000000000001
+        }
+      ],
+      "reference": "BT1",
+      "value": "1S LiPo"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Device:C_Polarized",
+      "pin_count": 2,
+      "pins": [
+        {
+          "name": "",
+          "net": "VCC",
+          "number": "1",
+          "x": 104.14,
+          "y": 156.21
+        },
+        {
+          "name": "",
+          "net": "GND",
+          "number": "2",
+          "x": 104.14,
+          "y": 163.83
+        }
+      ],
+      "reference": "C1",
+      "value": "220uF / 25V"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Device:Speaker",
+      "pin_count": 2,
+      "pins": [
+        {
+          "name": "1",
+          "net": "SPK_PLUS",
+          "number": "1",
+          "x": 124.46,
+          "y": 176.53
+        },
+        {
+          "name": "2",
+          "net": "SPK_MINUS",
+          "number": "2",
+          "x": 124.46,
+          "y": 179.07
+        }
+      ],
+      "reference": "LS1",
+      "value": "4 ohm / 3W"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Device:R",
+      "pin_count": 2,
+      "pins": [
+        {
+          "name": "",
+          "net": "+BATT",
+          "number": "1",
+          "x": 177.8,
+          "y": 116.84
+        },
+        {
+          "name": "",
+          "net": "BAT_ADC",
+          "number": "2",
+          "x": 177.8,
+          "y": 124.46000000000001
+        }
+      ],
+      "reference": "R1",
+      "value": "100k"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Device:R",
+      "pin_count": 2,
+      "pins": [
+        {
+          "name": "",
+          "net": "BAT_ADC",
+          "number": "1",
+          "x": 177.8,
+          "y": 134.62
+        },
+        {
+          "name": "",
+          "net": "GND",
+          "number": "2",
+          "x": 177.8,
+          "y": 142.24
+        }
+      ],
+      "reference": "R2",
+      "value": "100k"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Device:C",
+      "pin_count": 2,
+      "pins": [
+        {
+          "name": "",
+          "net": "BAT_ADC",
+          "number": "1",
+          "x": 208.28,
+          "y": 134.62
+        },
+        {
+          "name": "",
+          "net": "GND",
+          "number": "2",
+          "x": 208.28,
+          "y": 142.24
+        }
+      ],
+      "reference": "C2",
+      "value": "100nF"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Switch:SW_Push",
+      "pin_count": 2,
+      "pins": [
+        {
+          "name": "1",
+          "net": "BUTTON_1",
+          "number": "1",
+          "x": 320.04,
+          "y": 247.65
+        },
+        {
+          "name": "2",
+          "net": "GND",
+          "number": "2",
+          "x": 330.2,
+          "y": 247.65
+        }
+      ],
+      "reference": "SW1",
+      "value": "B3F-1020"
+    },
+    {
+      "footprint": "",
+      "lib_id": "Switch:SW_Push",
+      "pin_count": 2,
+      "pins": [
+        {
+          "name": "1",
+          "net": "BUTTON_2",
+          "number": "1",
+          "x": 370.84000000000003,
+          "y": 247.65
+        },
+        {
+          "name": "2",
+          "net": "GND",
+          "number": "2",
+          "x": 381.0,
+          "y": 247.65
+        }
+      ],
+      "reference": "SW2",
+      "value": "B3F-1020"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:+BATT",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "+BATT",
+          "number": "1",
+          "x": 22.86,
+          "y": 92.71
+        }
+      ],
+      "reference": "#PWR003",
+      "value": "+BATT"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:+BATT",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "+BATT",
+          "number": "1",
+          "x": 177.8,
+          "y": 111.76
+        }
+      ],
+      "reference": "#PWR004",
+      "value": "+BATT"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:VCC",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "VCC",
+          "number": "1",
+          "x": 104.14,
+          "y": 151.13
+        }
+      ],
+      "reference": "#PWR010",
+      "value": "VCC"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:GND",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "GND",
+          "number": "1",
+          "x": 22.86,
+          "y": 110.49
+        }
+      ],
+      "reference": "#PWR029",
+      "value": "GND"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:GND",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "GND",
+          "number": "1",
+          "x": 104.14,
+          "y": 168.91
+        }
+      ],
+      "reference": "#PWR030",
+      "value": "GND"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:GND",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "GND",
+          "number": "1",
+          "x": 177.8,
+          "y": 147.32
+        }
+      ],
+      "reference": "#PWR031",
+      "value": "GND"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:GND",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "GND",
+          "number": "1",
+          "x": 208.28,
+          "y": 147.32
+        }
+      ],
+      "reference": "#PWR032",
+      "value": "GND"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:VBUS",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "VBUS",
+          "number": "1",
+          "x": 25.4,
+          "y": 266.7
+        }
+      ],
+      "reference": "#PWR035",
+      "value": "VBUS"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:PWR_FLAG",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "VBUS",
+          "number": "1",
+          "x": 25.4,
+          "y": 261.62
+        }
+      ],
+      "reference": "#PWR036",
+      "value": "PWR_FLAG"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:+BATT",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "+BATT",
+          "number": "1",
+          "x": 50.8,
+          "y": 266.7
+        }
+      ],
+      "reference": "#PWR037",
+      "value": "+BATT"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:PWR_FLAG",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "+BATT",
+          "number": "1",
+          "x": 50.8,
+          "y": 261.62
+        }
+      ],
+      "reference": "#PWR038",
+      "value": "PWR_FLAG"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:GND",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "GND",
+          "number": "1",
+          "x": 76.2,
+          "y": 266.7
+        }
+      ],
+      "reference": "#PWR039",
+      "value": "GND"
+    },
+    {
+      "footprint": "",
+      "lib_id": "power:PWR_FLAG",
+      "pin_count": 1,
+      "pins": [
+        {
+          "name": "",
+          "net": "GND",
+          "number": "1",
+          "x": 76.2,
+          "y": 261.62
+        }
+      ],
+      "reference": "#PWR040",
+      "value": "PWR_FLAG"
+    }
+  ],
+  "net_count": 19,
+  "nets": [
+    "+3V3",
+    "+5V",
+    "+BATT",
+    "BAT_ADC",
+    "BUTTON_1",
+    "BUTTON_2",
+    "GND",
+    "I2C_SCL",
+    "I2C_SDA",
+    "I2S_BCLK",
+    "I2S_DIN",
+    "I2S_LRC",
+    "NFC_IRQ",
+    "NFC_VEN",
+    "OLED_RST",
+    "SPK_MINUS",
+    "SPK_PLUS",
+    "VBUS",
+    "VCC"
+  ]
+}

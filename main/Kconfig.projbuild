@@ -1,0 +1,9 @@
+menu "NFC alarm clock"
+    config CLOCK_DEVELOPMENT_BUILD
+        bool "Development build (never deploy as production)"
+        default n
+    config CLOCK_SIMULATED_NFC
+        bool "Allow simulated NFC (development only; implemented in milestone 3)"
+        depends on CLOCK_DEVELOPMENT_BUILD
+        default n
+endmenu
