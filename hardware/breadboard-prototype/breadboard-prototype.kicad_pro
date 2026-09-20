@@ -658,13 +658,18 @@
       {
         "filename": "breadboard-prototype.kicad_sch",
         "name": "breadboard-prototype",
-        "uuid": "00000000-0000-0000-0000-000000000000"
+        "uuid": "8e634f71-fc74-4eef-926a-3c48ed567fbd"
       }
     ],
     "used_designators": "",
     "variants": []
   },
-  "sheets": [],
+  "sheets": [
+    [
+      "8e634f71-fc74-4eef-926a-3c48ed567fbd",
+      "breadboard-prototype"
+    ]
+  ],
   "text_variables": {},
   "tuning_profiles": {
     "meta": {
