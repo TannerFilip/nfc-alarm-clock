@@ -72,4 +72,5 @@ initialized in this milestone**. Silence is not software amplifier shutdown;
 the amplifier SD pin is not connected to the MCU.
 
 See [architecture and policies](docs/architecture.md),
-[hardware evidence](docs/hardware.md), and [validation](docs/validation.md).
+[hardware evidence](docs/hardware.md), [validation](docs/validation.md), and
+[future features](docs/backlog.md).
