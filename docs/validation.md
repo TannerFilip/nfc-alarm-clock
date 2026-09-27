@@ -157,3 +157,48 @@ Final pre-commit validation rebuilt both pinned profiles and reran all checks:
 production  7b490052962865de0330ecfb19ae465c12f31f212641cf556b7e2341ff16fd4c
 development 7deead73616cf244f991046288f9b7b8c2f1c80b5ec04aa45ee0002a164e41b6
 ```
+
+## Milestone 3, firmware 0.3.0
+
+Implemented and host-tested the portable alarm state machine, calendar scheduling,
+curated timezone conversion, journal contract, tag authorization and alarm audio
+ramp. Integrated them with a dedicated FreeRTOS owner task and bounded event queue.
+
+| Check | Result |
+| --- | --- |
+| UTC/local scheduling and weekday masks | PASS |
+| Pacific spring gap / fall fold | PASS; skip gap, first fold only |
+| First time, forward catch-up and backward changes | PASS; no first-time/backward replay, five-minute window |
+| Overlapping occurrences | PASS; one start action and one tag dismisses active set |
+| Known/unknown tags and frozen snapshot recovery | PASS |
+| Ringing bypass attempts | PASS; schedule, zone and enrollment mutations rejected |
+| Activation/dismissal save failures | PASS; no pre-journal sound, no pre-journal silence |
+| Corrupt journal and active recovery | PASS; visible fault / restored start action |
+| Alarm audio ramp | PASS; nonzero, monotonic 1%-5%, bounded and repeating |
+| Host CTest suite | PASS, 3/3 executables |
+| Production firmware build/checker | PASS, 327792-byte application |
+| Development firmware build/checker | PASS, 329152-byte application |
+| Simulator artifact markers | Absent production; present development |
+| `git diff --check` | PASS |
+
+The production build compiles the portable core but exposes no mutation, trigger
+or simulated-tag console commands. The build checker verifies `nfc_sim` and the development
+OLED marker are absent from the production ELF and present in development. The
+device development adapter is RAM-only; host recovery tests exercise the abstract
+durable-journal contract, not NVS. NVS implementation and migration/failure tests
+remain Milestone 4.
+
+Final application SHA-256 values:
+
+```text
+production  19ac24480cc33ef428ea781273ca2f1eaea528118cf7b52a6ced18be7bce0eea
+development e7e5f4879900fb6bc7a0420c2ac811d64bd7df64e4535689f8887154775a8744
+```
+
+No Milestone 3 firmware was flashed or physically tested by the agent. The user
+reports that the development alarm sounded and was dismissed through its enrolled
+simulated-tag path on the device. This validates the principal device integration
+path but was not agent-observed; the exact remaining manual cases were not reported.
+The PN7160 board is connected, but no strap/address/IRQ/VEN/NCI result has been
+supplied. GPIO15/16 remain untouched and physical NFC dismissal
+is not implemented. Follow `docs/milestone-3.md` and the README for manual checks.

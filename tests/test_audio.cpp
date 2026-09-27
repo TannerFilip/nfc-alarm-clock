@@ -36,5 +36,18 @@ int main() {
     const double ratio = std::sqrt(energy[1]/energy[0]);
     assert(ratio > 4.95 && ratio < 5.05);
     for (int invalid : {0,2,6,100,255}) assert(test_tone_sample(1701,invalid) == 0);
-    std::cout << "PASS: audio levels, duration, frequency, peak limits, fades, nonzero PCM\n";
+    assert(alarm_tone_sample(-1) == 0);
+    double ramp_energy[3]{};
+    const int starts[]{test_sample_rate,15*test_sample_rate,31*test_sample_rate};
+    for (int window = 0; window < 3; ++window) {
+        for (int frame = starts[window]; frame < starts[window] + test_sample_rate; ++frame) {
+            const int sample = alarm_tone_sample(frame);
+            assert(std::abs(sample) <= 327 * 5);
+            ramp_energy[window] += double(sample) * sample;
+        }
+    }
+    assert(ramp_energy[0] > 0 && ramp_energy[0] < ramp_energy[1] && ramp_energy[1] < ramp_energy[2]);
+    assert(std::abs(alarm_tone_sample(31LL*test_sample_rate+1234)) ==
+           std::abs(alarm_tone_sample(61LL*test_sample_rate+1234)));
+    std::cout << "PASS: audio test bounds/fades and monotonic repeating alarm ramp\n";
 }

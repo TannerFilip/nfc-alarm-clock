@@ -35,6 +35,13 @@ for name in ("nfc-alarm-clock.bin", "nfc-alarm-clock.elf",
     path = args.build / name
     if not path.is_file() or path.stat().st_size == 0:
         errors.append(f"Missing/empty artifact: {name}")
+elf = args.build / "nfc-alarm-clock.elf"
+if elf.is_file():
+    simulator_markers = (b"nfc_sim", b"DEV SIM NFC - RAM ONLY")
+    artifact = elf.read_bytes()
+    for marker in simulator_markers:
+        if (marker in artifact) != args.development:
+            errors.append(f"Simulator artifact gate mismatch for {marker!r}")
 if errors:
     raise SystemExit("\n".join(errors))
 print("PASS: ESP32-S3 memory configuration, build profile and firmware artifacts")

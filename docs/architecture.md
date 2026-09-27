@@ -1,12 +1,12 @@
 # Architecture and incremental delivery
 
-Milestones 1 and 2 are implemented. Milestone 2 has partial user-reported physical
+Milestones 1-3 are implemented. Milestone 2 has partial user-reported physical
 verification, including audible output at 5%; remaining acceptance is documented
 in `docs/validation.md`.
 `main/drivers/` contains I2C, RTC, controls, display, sensing and audio bring-up.
-`main/core/` contains portable calendar and control helpers, and `bringup.cpp`
-owns their integration and serial commands. Alarm scheduling, persistence, NFC
-and web/Wi-Fi remain planned. The module responsibilities below guide those increments.
+`main/core/` contains portable calendar, alarm, scheduling, tag and control helpers.
+`alarm_service.cpp` owns alarm state on a dedicated task; `bringup.cpp` integrates
+bounded command events. Durable NVS, physical NFC and web/Wi-Fi remain planned.
 
 | Module | Responsibility |
 | --- | --- |
@@ -19,7 +19,7 @@ and web/Wi-Fi remain planned. The module responsibilities below guide those incr
 | `nfc` | Reader interface emits bounded tag IDs/status; production PN7160 NCI transport; separate development simulator |
 | `web_wifi` | Local HTML/CSS/JS assets, validated configuration requests, deliberate setup mode and optional STA connection |
 | `sensing` | BH1750 lux/dimming and calibrated ADC voltage; divider factor 2, no invented battery percentage |
-| `main` | Integration, queues and status; milestone 2 diagnostic integration today |
+| `main` | Integration, bounded queues and status; milestone 3 diagnostic integration today |
 
 The alarm task owns state. Hardware, NFC and web tasks submit typed events through
 bounded queues. Scheduling and audio never wait for network or NFC. I2C requests
@@ -28,9 +28,12 @@ the bus lock. Time-critical state and DMA buffers use internal RAM. Missing
 peripherals are explicit status faults, not global startup failures. No confirmed
 RTC time means unsynchronized status, not a fabricated current time.
 
-## Proposed policies, chosen for implementation in milestone 3
+## Alarm policies implemented in the Milestone 3 core
 
-These decisions are documented before implementation and can still be revised.
+The portable core implements these rules behind an abstract journal. Host tests
+exercise recovery and injected journal failures. The development device demo uses
+a volatile RAM journal; production mutation/simulation commands stay compiled out
+until Milestone 4 connects the same interface to validated NVS.
 
 - States: `time_invalid`, `idle`, `ringing`, plus orthogonal device/storage faults.
   A restored active occurrence rings even when wall-clock time is invalid.
@@ -43,14 +46,19 @@ These decisions are documented before implementation and can still be revised.
   corruption is a visible recovery fault, never silently treated as empty.
 - Missed alarms: when valid time resumes, catch up occurrences at most 5 minutes
   late; record older ones as missed for status, without ringing. First setup does
-  not retroactively ring. Maintain a durable evaluation cursor/occurrence history
-  to avoid replay after reboot or backward clock adjustments; bounded history
-  and retention rules must be specified/tested before implementation.
+  not retroactively ring. The journal retains a UTC evaluation cursor, a saturating
+  missed counter and the most recent 32 occurrence keys FIFO; the cursor prevents
+  replay after older history expires or backward clock adjustments. Occurrence,
+  dismissal, missed and skipped changes commit immediately; an otherwise-idle
+  cursor checkpoints at most once per five minutes rather than once per tick.
 - Overlaps join one active set and one audio stream. One enrolled tag scan
   dismisses all occurrences active at that instant. A later occurrence is new.
 - DST spring gap: skip the nonexistent local time and report it as skipped. DST
   fall fold: fire only the first occurrence of the selected local time that date.
   Weekdays refer to the configured local calendar, not UTC.
+- Milestone 3's curated zones are UTC and `America/Los_Angeles`. The latter uses
+  the applicable US DST transition rules for 2000-2099, including the 2007 rule
+  change. Additional curated zones require their own transition tests.
 - Timezone/manual-time edits affect future scheduling only. Forward changes use
   the missed-alarm window; backward changes never replay recorded occurrences.
   Freeze each ringing occurrence and its enrolled-tag authorization snapshot.
@@ -58,7 +66,8 @@ These decisions are documented before implementation and can still be revised.
   audio path, lower its captured maximum volume, delete its authorization snapshot,
   or initiate a reset/setup/audio-test operation that bypasses dismissal. Reject
   incompatible writes with a visible error; do not silently accept and ignore them.
-- Production accepts only physical enrolled tag events. Development injection uses
+- Production will accept only physical enrolled tag events once that reader exists;
+  it currently exposes no tag path. Development injection uses
   the same authorization/state path, requires both build flags, and will carry
   conspicuous OLED/web badges. Unknown tags never dismiss. Enrollment is allowed
   only while idle through authenticated, time-limited explicit enrollment mode.
@@ -88,14 +97,14 @@ change alarm state. Provisioning reset must preserve an active alarm journal.
 ## Delivery gates
 
 1. **Built; user reports hardware working:** pinned build, memory/boot logging, architecture, flash instructions.
-2. **Current, built; partially user-tested:** Shared I2C discovery and fault status; OLED, RTC, seesaw, buttons; explicit
+2. **Built; partially user-tested:** Shared I2C discovery and fault status; OLED, RTC, seesaw, buttons; explicit
    bounded low-volume I2S test; voltage and light sensing. Validate each on-device.
-3. Portable core and simulator: host tests for scheduling, weekdays, DST gaps/folds,
+3. **Current, built and host-tested; device demo unverified:** Portable core and simulator: host tests for scheduling, weekdays, DST gaps/folds,
    forward/backward clock changes, recovery, overlap, unknown/valid tags and bypass
    attempts. Fault-inject journal writes. Compile both development and production.
 4. NVS validation/migration tests and local web UI for every requested setting;
    exercise offline boot, access control, bad requests and disconnection during alarm.
-5. PN7160 NCI integration after board arrival: verify straps/address/voltage,
+5. PN7160 NCI integration (board now connected but unverified): verify straps/address/voltage,
    controller reset/init, tag discovery/enrollment and disconnected-reader recovery.
 
 Every gate gets its own recorded build/test results and exact flash/manual tests.

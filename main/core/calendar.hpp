@@ -6,6 +6,9 @@ struct DateTime { int year, month, day, hour, minute, second; };
 bool valid_date(const DateTime& value);
 bool parse_utc(const char* text, DateTime& result);
 int64_t epoch_seconds(const DateTime& value);
+DateTime epoch_datetime(int64_t seconds);
+int weekday(const DateTime& value); // 0=Sunday through 6=Saturday.
+int month_days(int year, int month);
 // Input is Control_1 through Years (10 bytes). Reject stopped/12h/OS clocks,
 // reserved bits, invalid BCD and impossible calendar dates.
 bool decode_rtc(const uint8_t* registers, DateTime& result);

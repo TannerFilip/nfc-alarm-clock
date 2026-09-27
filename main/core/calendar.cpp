@@ -4,16 +4,16 @@
 namespace clock_core {
 namespace {
 bool leap(int y) { return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0); }
-int days_in_month(int y, int m) {
-    constexpr int days[]{31,28,31,30,31,30,31,31,30,31,30,31};
-    return days[m - 1] + (m == 2 && leap(y));
-}
 int bcd(uint8_t v) { return (v & 15) <= 9 && (v >> 4) <= 9 ? (v >> 4) * 10 + (v & 15) : -1; }
 uint8_t to_bcd(int v) { return static_cast<uint8_t>((v / 10) * 16 + v % 10); }
 }
+int month_days(int y, int m) {
+    constexpr int days[]{31,28,31,30,31,30,31,31,30,31,30,31};
+    return m >= 1 && m <= 12 ? days[m - 1] + (m == 2 && leap(y)) : 0;
+}
 bool valid_date(const DateTime& v) {
     return v.year >= 2000 && v.year <= 2099 && v.month >= 1 && v.month <= 12 &&
-        v.day >= 1 && v.day <= days_in_month(v.year, v.month) &&
+        v.day >= 1 && v.day <= month_days(v.year, v.month) &&
         v.hour >= 0 && v.hour < 24 && v.minute >= 0 && v.minute < 60 && v.second >= 0 && v.second < 60;
 }
 bool parse_utc(const char* s, DateTime& out) {
@@ -32,10 +32,24 @@ bool parse_utc(const char* s, DateTime& out) {
     return true;
 }
 int64_t epoch_seconds(const DateTime& v) {
-    int64_t days = 10957; // 1970-01-01 to 2000-01-01
-    for (int y = 2000; y < v.year; ++y) days += leap(y) ? 366 : 365;
-    for (int m = 1; m < v.month; ++m) days += days_in_month(v.year, m);
+    if (v.year < 1970) return -1;
+    int64_t days = 0;
+    for (int y = 1970; y < v.year; ++y) days += leap(y) ? 366 : 365;
+    for (int m = 1; m < v.month; ++m) days += month_days(v.year, m);
     return ((days + v.day - 1) * 24 + v.hour) * 3600 + v.minute * 60 + v.second;
+}
+DateTime epoch_datetime(int64_t seconds) {
+    if (seconds < 0) return {};
+    int64_t days = seconds / 86400;
+    int remaining = static_cast<int>(seconds % 86400);
+    int year = 1970;
+    while (days >= (leap(year) ? 366 : 365)) { days -= leap(year) ? 366 : 365; ++year; }
+    int month = 1;
+    while (days >= month_days(year,month)) { days -= month_days(year,month); ++month; }
+    return {year,month,static_cast<int>(days)+1,remaining/3600,(remaining/60)%60,remaining%60};
+}
+int weekday(const DateTime& value) {
+    return static_cast<int>((epoch_seconds(value) / 86400 + 4) % 7);
 }
 bool decode_rtc(const uint8_t* r, DateTime& out) {
     if ((r[0] & 0x28) || (r[3] & 0x80) || (r[4] & 0x80) || (r[5] & 0xc0) ||

@@ -12,7 +12,12 @@ occasional Wi-Fi time sync and a deliberate physical-action backup dismissal.
 The backup mechanism is undecided; update the dismissal policy explicitly when
 it is designed, rather than treating ordinary controls as an implicit override.
 
-Milestone 2 adds peripheral bring-up, a serial console and host-tested calendar/control helpers.
+Milestone 3 adds the portable alarm core, weekday/DST scheduling, journal failure
+semantics, a dedicated alarm-owner task, a controlled audio ramp and a development-
+only simulated NFC path. Device-side Milestone 3 configuration and its journal are
+deliberately RAM-only until Milestone 4 adds validated NVS and the protected web UI;
+production exposes no alarm/tag mutation or simulated-tag commands yet.
+Milestone 2 added peripheral bring-up, a serial console and host-tested calendar/control helpers.
 The user now reports OLED, encoder/light sensing and audio working; the original
 1% tone was simply too quiet, and the 5% diagnostic was audible. These are
 user-reported checks, not agent-observed measurements. RTC retention, battery
@@ -21,8 +26,14 @@ Milestone 1 implemented
 boot/memory diagnostics only. The user confirmed that it
 works on the physical device after commit `03fb405`. This is user-reported
 validation, not an agent-observed serial log or confirmation of every manual
-acceptance item. Alarm scheduling, simulated tag events and the web UI are not implemented yet.
-See `docs/milestone-2.md` for driver status and manual acceptance. The PN7160 has not arrived as of this handoff.
+acceptance item. The user reports that the PN7160 board is now connected, but its
+exact I2C variant, 3.3 V selection, address straps, IRQ/VEN behavior and NCI
+communication have not been verified from a log or by the agent. The user reports
+the development alarm sounded and stopped through the enrolled simulated-tag path;
+this is user-reported on-device validation, not a physical PN7160 read. Milestone 3
+leaves GPIO15/16 untouched; an I2C ACK is presence evidence only. See
+`docs/milestone-3.md` for status and manual acceptance. The web UI, NVS persistence
+and physical PN7160 NCI driver are not implemented yet.
 
 ## Hardware is authoritative and must be preserved
 
@@ -123,8 +134,9 @@ unless requested.
 
 Proceed in the requested order: (1) build/diagnostics, (2) peripheral bring-up and
 low-volume audio test, (3) alarm core with simulated NFC, (4) persistence and local
-web configuration, (5) physical PN7160 integration when available. Missing NFC
-hardware must not prevent useful independent development.
+web configuration, (5) physical PN7160 integration. The PN7160 is now connected,
+but do not skip Milestone 4's durable state/configuration work before enabling
+production alarms or physical dismissal.
 
 Compile and test each meaningful increment. Build both profiles when shared code,
 configuration or development gates change. Add meaningful host tests as the

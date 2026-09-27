@@ -61,3 +61,13 @@ addresses above are expectations, not device identities established by probing.
 Before milestone 2: confirm board marking, actual I2C pull-ups and
 addresses, OLED reset routing, and power arrangement. Before battery tests,
 confirm the actual battery/power-path assembly and measure voltage at GPIO1.
+
+## PN7160 arrival status (user report, 2026-09-27)
+
+The user reports that the NFC board is now connected. No photo, I2C scan, strap
+reading, IRQ/VEN trace or NCI exchange has been supplied, so this does not yet
+confirm the I2C variant, 3.3 V selection, 0x28-0x2B address, or functional reader.
+Milestone 3 deliberately leaves GPIO15/16 unconfigured and does not send PN7160
+commands. A scan ACK, if present while the module is enabled, establishes only an
+I2C responder at that address. Physical integration must verify VEN sequencing,
+IRQ polarity/behavior and NCI reset/init against the delivered board.

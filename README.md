@@ -1,9 +1,13 @@
 # NFC-dismiss alarm clock firmware
 
-Milestone 2: peripheral bring-up and serial diagnostics. **Not yet an operational alarm clock.**
+Milestone 3: portable alarm core and development-only simulated NFC. **Not yet a
+production-operational alarm clock.**
 The user confirmed milestone 1 works on-device. Milestone 2 has not been flashed
 or physically verified by the agent. The user reports the OLED, encoder/light
-sensing and 5% audio test work; run the remaining acceptance steps below.
+sensing and 5% audio test work. The PN7160 board is now connected, but its straps,
+VEN/IRQ behavior and NCI communication remain unverified. Milestone 3 builds and
+host tests pass. The user reports its development alarm sounded and was dismissed
+through the enrolled simulated-tag path on the device.
 
 ## Build and flash
 
@@ -46,26 +50,72 @@ idf.py -B build/m1-dev -D SDKCONFIG=build/m1-dev/sdkconfig -D 'SDKCONFIG_DEFAULT
 idf.py -B build/m1-dev -D SDKCONFIG=build/m1-dev/sdkconfig -p /dev/ttyUSB0 flash monitor
 ```
 
-This prints the development/simulation banner on serial and OLED; tag injection
-arrives in milestone 3. The `build/m1` and `build/m1-dev` directory names are
-retained for VS Code compatibility; they now build the current milestone 2 source. Never ship the development profile. To use the extension's
-Build/Flash buttons instead, configure `idf.buildPath` to `${workspaceFolder}/build/m1`
-and add `-DSDKCONFIG=build/m1/sdkconfig` to `idf.cmakeCompilerArgs`, then select
+This prints the development/simulation banner on serial and OLED and enables the
+RAM-only Milestone 3 alarm demo. The `build/m1` and `build/m1-dev` directory names
+are retained for VS Code compatibility; they build the current milestone 3 source.
+Never ship the development profile. To use the extension's
+Build/Flash buttons instead, the checked-in workspace settings currently select the
+development profile: `idf.buildPath` is `${workspaceFolder}/build/m1-dev`, and
+`idf.cmakeCompilerArgs` supplies both `-DSDKCONFIG=build/m1-dev/sdkconfig` and
+`-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.development`. Select
 the UART port. The CLI commands above are the reference workflow.
-These production build settings are already supplied in `.vscode/settings.json`.
+These development build settings are already supplied in `.vscode/settings.json`.
 
-## Milestone 2 manual acceptance
+## Milestone 3 development acceptance
+
+Use only the development profile for this demo. Its schedule, timezone, enrolled
+tag and journal are RAM-only and disappear on reset; the production profile does
+not contain these mutation/simulation commands. Set valid UTC first, then run:
+
+```text
+tag_enroll 01020304
+alarm_zone America/Los_Angeles
+alarm_set 07:00 0111110
+alarm_status
+alarm_trigger
+```
+
+The weekday mask is Sunday through Saturday, so `0111110` means Monday-Friday.
+Use an alarm time one or two minutes ahead to test normal scheduled firing.
+`alarm_trigger` is a development shortcut but enters the same ringing state.
+Expect a repeating 440 Hz tone that ramps from 1% to 5% digital peak over 30
+seconds and an `ALARM RINGING` OLED warning.
+
+While ringing, buttons and the encoder may change diagnostic pages/brightness but
+must not dismiss the alarm. `clock_set`, `audio_test`, `alarm_set`, `alarm_zone`,
+tag enrollment and another trigger must be rejected or have no bypass effect.
+An unknown simulated tag must leave it ringing:
+
+```text
+nfc_sim AABBCCDD
+alarm_status
+```
+
+The enrolled tag must take the identical authorization path and stop the alarm
+only after its dismissal is accepted by the journal:
+
+```text
+nfc_sim 01020304
+alarm_status
+```
+
+Flash the production profile afterward and confirm `help` has no `nfc_sim`,
+`tag_enroll`, `alarm_set`, `alarm_zone`, or `alarm_trigger` command and no simulator
+OLED banner. Full steps and policy boundaries are in [Milestone 3](docs/milestone-3.md).
+
+## Remaining Milestone 2 manual acceptance
 
 Follow the power/flash instructions above. Open the UART console at 115200 baud.
 Type `help` at `clock>` to list commands. Press Enter if periodic status logging
 has displaced the prompt. Each command queues work; the log reports its result.
 
-1. Check the milestone **2 / 0.2.0** banner and `memory=OK` (33554432 bytes flash,
+1. Check the current milestone **3 / 0.3.0** banner and `memory=OK` (33554432 bytes flash,
    16777216 bytes PSRAM). Production must report simulation disabled; development
    must show a development/simulation warning on serial and OLED.
 2. Run `i2c_scan`. Expect ACKs at **0x23, 0x36, 0x3C, 0x68** for the installed
    modules. An ACK does not prove identity; missing devices are reported separately.
-   No NFC driver is started and GPIO15/16 are untouched.
+   An attached PN7160 may ACK at 0x28-0x2B if already enabled, but an ACK does not
+   prove NCI operation. No NFC driver is started and GPIO15/16 remain untouched.
 3. Run `clock_status`. Check the OLED is legible in landscape, with no clipped or
    shifted lines. An unset RTC should show an invalid-time message, not a guessed
    clock. The default display uses UTC; timezone support comes with scheduling.

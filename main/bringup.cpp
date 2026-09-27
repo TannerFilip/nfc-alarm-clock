@@ -1,4 +1,6 @@
 #include "bringup.hpp"
+#include "alarm_service.hpp"
+#include "core/alarm_core.hpp"
 #include "core/test_tone.hpp"
 #include "drivers/i2c_bus.hpp"
 #include "drivers/timekeeping.hpp"
@@ -17,9 +19,21 @@
 #include <cstring>
 #include <ctime>
 
+#if defined(CONFIG_CLOCK_SIMULATED_NFC) && !defined(CONFIG_CLOCK_DEVELOPMENT_BUILD)
+#error "Simulated NFC requires the development build gate"
+#endif
+
 namespace {
-enum class CommandType { status, scan, set_time, audio, brightness, ambient };
-struct Command { CommandType type; clock_core::DateTime time{}; int value = 0; };
+enum class CommandType { status, scan, set_time, audio, brightness, ambient, alarm_status,
+                         alarm_set, alarm_zone, tag_enroll, simulated_tag, alarm_trigger };
+struct Command {
+    CommandType type;
+    clock_core::DateTime time{};
+    int value = 0;
+    clock_core::AlarmDefinition alarm{};
+    clock_core::TagId tag{};
+    clock_core::TimeZone zone = clock_core::TimeZone::utc;
+};
 QueueHandle_t commands = nullptr;
 clock_hw::I2cBus bus;
 clock_hw::Timekeeping timekeeping(bus);
@@ -27,8 +41,10 @@ clock_hw::Controls controls(bus);
 clock_hw::Sensing sensing(bus);
 clock_hw::Display display(bus);
 clock_hw::Audio audio;
+clock_app::AlarmService alarm;
 int brightness = 79;
 bool ambient = false, status_page = false;
+int nfc_address = -1;
 
 int send(Command command) {
     if (!commands || xQueueSend(commands,&command,0) != pdTRUE) {
@@ -64,18 +80,52 @@ int ambient_command(int argc, char** argv) {
     if (argc != 2 || (std::strcmp(argv[1],"on") && std::strcmp(argv[1],"off"))) return 1;
     return send({CommandType::ambient,{},!std::strcmp(argv[1],"on")});
 }
+int alarm_status_command(int argc, char**) { return argc == 1 ? send({CommandType::alarm_status}) : 1; }
+#ifdef CONFIG_CLOCK_SIMULATED_NFC
+int alarm_set_command(int argc, char** argv) {
+    if (argc != 3 || std::strlen(argv[1]) != 5 || argv[1][2] != ':' || std::strlen(argv[2]) != 7)
+        return 1;
+    if (argv[1][0] < '0' || argv[1][0] > '9' || argv[1][1] < '0' || argv[1][1] > '9' ||
+        argv[1][3] < '0' || argv[1][3] > '9' || argv[1][4] < '0' || argv[1][4] > '9') return 1;
+    Command command{CommandType::alarm_set};
+    command.alarm = {1,static_cast<uint8_t>((argv[1][0]-'0')*10+argv[1][1]-'0'),
+        static_cast<uint8_t>((argv[1][3]-'0')*10+argv[1][4]-'0'),0,true};
+    for (int i = 0; i < 7; ++i) {
+        if (argv[2][i] != '0' && argv[2][i] != '1') return 1;
+        if (argv[2][i] == '1') command.alarm.weekdays |= 1U << i;
+    }
+    if (command.alarm.hour > 23 || command.alarm.minute > 59 || command.alarm.weekdays == 0) return 1;
+    return send(command);
+}
+int alarm_zone_command(int argc, char** argv) {
+    Command command{CommandType::alarm_zone};
+    if (argc != 2 || !clock_core::parse_timezone(argv[1],command.zone)) return 1;
+    return send(command);
+}
+int tag_command(CommandType type, int argc, char** argv) {
+    Command command{type};
+    if (argc != 2 || !clock_core::parse_tag(argv[1],command.tag)) return 1;
+    return send(command);
+}
+int tag_enroll_command(int argc, char** argv) { return tag_command(CommandType::tag_enroll,argc,argv); }
+int simulated_tag_command(int argc, char** argv) { return tag_command(CommandType::simulated_tag,argc,argv); }
+int alarm_trigger_command(int argc, char**) { return argc == 1 ? send({CommandType::alarm_trigger}) : 1; }
+#endif
 void scan() {
     ESP_LOGI("i2c", "discovery SDA=8 SCL=9 at 100kHz; ACK does not establish device identity");
-    unsigned count = 0;
+    unsigned count = 0; nfc_address = -1;
     for (uint8_t a = 8; a < 120; ++a) {
         auto err = bus.probe(a);
-        if (err == ESP_OK) { ESP_LOGI("i2c", "ACK at 0x%02x",a); ++count; }
+        if (err == ESP_OK) {
+            ESP_LOGI("i2c", "ACK at 0x%02x",a); ++count;
+            if (a >= 0x28 && a <= 0x2b) nfc_address = a;
+        }
         else if (err != ESP_ERR_NOT_FOUND) {
             ESP_LOGW("i2c", "scan stopped at 0x%02x: %s; check pull-ups/bus wiring",a,esp_err_to_name(err));
             break;
         }
     }
-    ESP_LOGI("i2c", "%u ACKs; expected OLED=3C RTC=68 light=23 encoder=36. NFC not initialized",count);
+    ESP_LOGI("i2c", "%u ACKs; expected OLED=3C RTC=68 light=23 encoder=36; PN7160 expected 28-2B but NCI not started",count);
 }
 void format_time(char* text, size_t size, const char* format) {
     time_t now = std::time(nullptr);
@@ -86,19 +136,25 @@ void report() {
     char text[32] = "INVALID";
     if (timekeeping.valid()) format_time(text,sizeof(text),"%Y-%m-%dT%H:%M:%SZ");
     ESP_LOGI("status", "UTC=%s source=%s RTC=%s",text,timekeeping.source(),timekeeping.rtc_status());
-    ESP_LOGI("status", "OLED=%s encoder=%s audio=%s NFC=NOT INITIALIZED",display.online()?"OK":"MISSING/IO ERROR",controls.status(),audio.status());
+    ESP_LOGI("status", "OLED=%s encoder=%s audio=%s NFC=%s",display.online()?"OK":"MISSING/IO ERROR",controls.status(),audio.status(),
+             nfc_address < 0 ? "NOT SEEN / NCI NOT STARTED" : "I2C ACK ONLY / NCI NOT STARTED");
     ESP_LOGI("status", "battery_mV=%d raw_ADC=%d calibrated=%d lux=%.1f (-1=unavailable); brightness=%d ambient=%d",
              sensing.battery_mv,sensing.raw_adc,sensing.calibrated,sensing.lux,brightness,ambient);
-    ESP_LOGI("status", "M2 diagnostics; no alarms, Wi-Fi, enrollment or persistent settings");
+    ESP_LOGI("status", "M3 alarm=%s active=%u missed=%u skipped=%u; no Wi-Fi or persistent settings",
+             alarm.state_name(),alarm.active_count(),alarm.missed_count(),alarm.skipped_count());
+    alarm.request_status();
 }
 void render() {
     display.clear();
 #ifdef CONFIG_CLOCK_SIMULATED_NFC
-    display.text(0,0,"DEV SIM NFC - NOT IMPLEMENTED");
+    if (alarm.ringing()) display.text(0,0,"DEV SIM ALARM RINGING");
+    else display.text(0,0,"DEV SIM NFC - RAM ONLY");
 #elif defined(CONFIG_CLOCK_DEVELOPMENT_BUILD)
-    display.text(0,0,"DEVELOPMENT BUILD");
+    if (alarm.ringing()) display.text(0,0,"DEV ALARM RINGING");
+    else display.text(0,0,"DEVELOPMENT BUILD");
 #else
-    display.text(0,0,"M2 BRINGUP - NO ALARMS");
+    if (alarm.ringing()) display.text(0,0,"ALARM RINGING - NFC REQUIRED");
+    else display.text(0,0,"M3 CORE - CONFIG PENDING");
 #endif
     char line[40];
     if (!status_page) {
@@ -110,14 +166,15 @@ void render() {
         display.text(0,32,line);
         std::snprintf(line,sizeof(line),"RTC %s",timekeeping.rtc_status()); display.text(0,42,line);
         std::snprintf(line,sizeof(line),"BAT %d MV  LUX %.0f",sensing.battery_mv,sensing.lux); display.text(0,51,line);
-        display.text(0,59,"NFC NOT INITIALIZED");
+        std::snprintf(line,sizeof(line),"ALARM %s NFC %s",alarm.state_name(),nfc_address < 0 ? "NO ACK" : "ACK ONLY");
+        display.text(0,59,line);
     } else {
         std::snprintf(line,sizeof(line),"ENCODER %s",controls.status()); display.text(0,12,line);
         std::snprintf(line,sizeof(line),"AUDIO %s",audio.status()); display.text(0,22,line);
         std::snprintf(line,sizeof(line),"BRIGHTNESS %d AUTO %s",brightness,ambient?"ON":"OFF"); display.text(0,32,line);
         std::snprintf(line,sizeof(line),"ADC %d  BAT %d MV",sensing.raw_adc,sensing.battery_mv); display.text(0,42,line);
-        display.text(0,52,"AUDIO TEST VIA SERIAL ONLY");
-        display.text(0,59,"NFC NOT INITIALIZED");
+        std::snprintf(line,sizeof(line),"ALARM %s ACTIVE %u",alarm.state_name(),alarm.active_count()); display.text(0,52,line);
+        display.text(0,59,"PN7160 NCI NOT STARTED");
     }
     display.present();
 }
@@ -127,6 +184,7 @@ void peripheral_task(void*) {
     ESP_LOGI("bringup", "buttons: %s",esp_err_to_name(controls.init_buttons()));
     ESP_LOGI("bringup", "ADC: %s",esp_err_to_name(sensing.init_adc()));
     ESP_LOGI("bringup", "audio driver: %s (speaker presence cannot be detected)",esp_err_to_name(audio.init()));
+    ESP_LOGI("bringup", "alarm task: %s",esp_err_to_name(alarm.init(audio)));
     // Display reset happens in service before discovery so a held-reset OLED
     // isn't incorrectly reported absent by the initial scan.
     render(); display.service(esp_timer_get_time()/1000,brightness);
@@ -149,15 +207,26 @@ void peripheral_task(void*) {
             switch (command.type) {
             case CommandType::status: report(); break;
             case CommandType::scan: scan(); break;
-            case CommandType::set_time: timekeeping.set(command.time); render(); break;
+            case CommandType::set_time:
+                if (alarm.ringing()) ESP_LOGW("bringup", "clock_set rejected while alarm is ringing");
+                else timekeeping.set(command.time);
+                render(); break;
             case CommandType::audio:
-                ESP_LOGI("bringup", "%s",audio.request_test(command.value)?"audio test accepted":"audio busy/unavailable"); break;
+                ESP_LOGI("bringup", "%s",!alarm.ringing() && audio.request_test(command.value)?"audio test accepted":"audio test rejected: ringing/busy/unavailable"); break;
             case CommandType::brightness: brightness = command.value; render(); break;
             case CommandType::ambient: ambient = command.value; render(); break;
+            case CommandType::alarm_status: alarm.request_status(); break;
+            case CommandType::alarm_set: alarm.configure(command.alarm); break;
+            case CommandType::alarm_zone: alarm.set_timezone(command.zone); break;
+            case CommandType::tag_enroll: alarm.enroll(command.tag); break;
+            case CommandType::simulated_tag: alarm.submit_tag(command.tag); break;
+            case CommandType::alarm_trigger: alarm.development_trigger(); break;
             }
         }
         if (now_ms >= slow_at) {
-            timekeeping.poll(); sensing.poll(now_ms); render(); slow_at = now_ms + 1000;
+            timekeeping.poll(); sensing.poll(now_ms);
+            alarm.tick(timekeeping.valid(),timekeeping.valid() ? std::time(nullptr) : 0);
+            render(); slow_at = now_ms + 1000;
         }
         // Ambient setting acts as a ceiling with manual brightness. A missing
         // light sensor falls back to manual; it never blanks the display.
@@ -184,6 +253,14 @@ void console() {
         {.command="audio_test",.help="audio_test [1|5]: 2-second 440Hz test, default 1% peak",.hint=nullptr,.func=audio_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr},
         {.command="brightness",.help="Set OLED contrast 1-255 (RAM only)",.hint=nullptr,.func=brightness_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr},
         {.command="ambient",.help="ambient on|off (RAM only)",.hint=nullptr,.func=ambient_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
+        ,{.command="alarm_status",.help="Report alarm-core state",.hint=nullptr,.func=alarm_status_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
+#ifdef CONFIG_CLOCK_SIMULATED_NFC
+        ,{.command="tag_enroll",.help="DEV RAM only: tag_enroll HEX_UID",.hint=nullptr,.func=tag_enroll_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
+        ,{.command="alarm_zone",.help="DEV RAM only: UTC|America/Los_Angeles",.hint=nullptr,.func=alarm_zone_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
+        ,{.command="alarm_set",.help="DEV RAM only: alarm_set HH:MM SMTWTFS mask (0/1)",.hint=nullptr,.func=alarm_set_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
+        ,{.command="alarm_trigger",.help="DEV: trigger now through alarm state machine",.hint=nullptr,.func=alarm_trigger_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
+        ,{.command="nfc_sim",.help="DEV SIM: nfc_sim HEX_UID; same authorization path as reader",.hint=nullptr,.func=simulated_tag_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
+#endif
     };
     err = esp_console_register_help_command();
     for (const auto& entry : entries) if (err == ESP_OK) err = esp_console_cmd_register(&entry);

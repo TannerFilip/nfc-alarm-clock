@@ -21,7 +21,7 @@
 extern "C" void app_main()
 {
     constexpr auto tag = "clock";
-    ESP_LOGI(tag, "NFC alarm clock milestone 2 / 0.2.0 / IDF %s", esp_get_idf_version());
+    ESP_LOGI(tag, "NFC alarm clock milestone 3 / 0.3.0 / IDF %s", esp_get_idf_version());
 #ifdef CONFIG_CLOCK_DEVELOPMENT_BUILD
     ESP_LOGW(tag, "DEVELOPMENT BUILD - not production firmware");
 #else
@@ -44,7 +44,7 @@ extern "C" void app_main()
     if (!memory_ok) {
         ESP_LOGE(tag, "MEMORY MISMATCH: expected 33554432 flash / 16777216 PSRAM bytes");
     }
-    ESP_LOGW(tag, "Peripheral diagnostics: no alarms, persistent settings, networking or NFC yet");
+    ESP_LOGW(tag, "Milestone 3 alarm core; persistent settings, networking and physical NFC remain pending");
     start_bringup();
     while (true) {
         ESP_LOGI(tag, "uptime=%" PRIi64 "s memory=%s internal_free=%zu psram_free=%zu",

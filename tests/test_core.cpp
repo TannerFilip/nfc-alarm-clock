@@ -7,6 +7,9 @@ int main() {
     DateTime v{};
     assert(parse_utc("2000-01-01T00:00:00Z", v));
     assert(epoch_seconds(v) == 946684800);
+    assert(epoch_seconds(DateTime{1970,1,1,0,0,0}) == 0);
+    assert(weekday(DateTime{1970,1,1,0,0,0}) == 4);
+    assert(epoch_datetime(0).year == 1970 && epoch_datetime(0).day == 1);
     assert(parse_utc("2024-02-29T23:59:59Z", v));
     assert(epoch_seconds(v) == 1709251199);
     for (const char* bad : {"2023-02-29T00:00:00Z", "2100-01-01T00:00:00Z", "2024-04-31T00:00:00Z",
@@ -37,5 +40,5 @@ int main() {
     assert(encoder_delta(0xffffffffU,0) == 1);
     assert(encoder_delta(0,0xffffffffU) == -1);
     assert(encoder_delta(0x7fffffffU,0x80000000U) == 1);
-    std::cout << "PASS: calendar/BCD, all supported dates, UTC parsing, debounce, encoder rollover\n";
+    std::cout << "PASS: calendar/epoch/BCD, supported dates, UTC parsing, debounce, encoder rollover\n";
 }

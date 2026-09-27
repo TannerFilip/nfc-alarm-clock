@@ -20,19 +20,20 @@
     }
   },
   "idf.currentSetup": "/home/tanner/.espressif/v6.1/esp-idf",
-  "idf.buildPath": "${workspaceFolder}/build/m1",
+  "idf.buildPath": "${workspaceFolder}/build/m1-dev",
   "idf.cmakeCompilerArgs": [
     "-G",
     "Ninja",
     "-DPYTHON_DEPS_CHECKED=1",
     "-DESP_PLATFORM=1",
-    "-DSDKCONFIG=build/m1/sdkconfig"
+    "-DSDKCONFIG=build/m1-dev/sdkconfig",
+    "-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.development"
   ],
   "clangd.path": "/home/tanner/.espressif/tools/esp-clangd/esp-21.1.3_20260408/esp-clangd/bin/clangd",
   "clangd.arguments": [
     "--background-index",
     "--query-driver=**",
-    "--compile-commands-dir=/home/tanner/nfc-alarm-clock/build/m1"
+    "--compile-commands-dir=/home/tanner/nfc-alarm-clock/build/m1-dev"
   ],
   "idf.port": "/dev/ttyUSB0",
   "idf.flashType": "UART"
