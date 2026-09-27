@@ -14,7 +14,9 @@ esp_err_t I2cBus::init() {
     // External pull-ups are supplied by the modules.
     auto err = i2c_new_master_bus(&cfg, &bus_);
     if (err != ESP_OK) return err;
-    for (uint8_t address : {oled, rtc, light, encoder}) {
+    for (uint8_t address : {oled, rtc, light, encoder,
+                            static_cast<uint8_t>(0x28), static_cast<uint8_t>(0x29),
+                            static_cast<uint8_t>(0x2a), static_cast<uint8_t>(0x2b)}) {
         i2c_device_config_t dev{};
         dev.dev_addr_length = I2C_ADDR_BIT_LEN_7;
         dev.device_address = address;
@@ -43,5 +45,25 @@ esp_err_t I2cBus::transfer(uint8_t address, const uint8_t* tx, size_t ntx, uint8
 }
 esp_err_t I2cBus::write(uint8_t a, const uint8_t* p, size_t n) { return transfer(a, p, n, nullptr, 0); }
 esp_err_t I2cBus::read(uint8_t a, uint8_t* p, size_t n) { return transfer(a, nullptr, 0, p, n); }
+esp_err_t I2cBus::read_nci_frame(uint8_t address, uint8_t* data, size_t capacity,
+                                 size_t& frame_size) {
+    constexpr size_t header_size = 3;
+    constexpr size_t maximum_frame_size = header_size + 255;
+    frame_size = 0;
+    if (!data || capacity < maximum_frame_size) return ESP_ERR_INVALID_ARG;
+    if (address >= 128 || !devices_[address] || !mutex_) return ESP_ERR_INVALID_STATE;
+    if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(30)) != pdTRUE) return ESP_ERR_TIMEOUT;
+
+    auto err = i2c_master_receive(devices_[address], data, header_size, 20);
+    if (err == ESP_OK) {
+        const size_t payload_size = data[2];
+        if (payload_size != 0) {
+            err = i2c_master_receive(devices_[address], data + header_size, payload_size, 20);
+        }
+        if (err == ESP_OK) frame_size = header_size + payload_size;
+    }
+    xSemaphoreGive(mutex_);
+    return err;
+}
 esp_err_t I2cBus::registers(uint8_t a, uint8_t r, uint8_t* p, size_t n) { return transfer(a, &r, 1, p, n); }
 }

@@ -1,5 +1,6 @@
 #include "alarm_service.hpp"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
 #include <cstring>
@@ -100,6 +101,15 @@ bool AlarmService::set_device_name(const char* name, uint8_t length) {
 bool AlarmService::submit_tag(const clock_core::TagId& tag) {
     Event event{}; event.type = EventType::tag; event.tag = tag; return send(event);
 }
+bool AlarmService::submit_physical_tag(const clock_core::TagId& tag) {
+    Event event{}; event.type = EventType::physical_tag; event.tag = tag; return send(event);
+}
+bool AlarmService::begin_tag_enrollment(uint32_t duration_seconds) {
+    if (duration_seconds < 10 || duration_seconds > 300 || ringing_) return false;
+    Event event{}; event.type = EventType::begin_enrollment;
+    event.now_utc = duration_seconds;
+    return send(event);
+}
 bool AlarmService::development_trigger() { Event event{}; event.type = EventType::trigger; return send(event); }
 bool AlarmService::set_brightness(uint8_t value) { Event event{}; event.type = EventType::brightness; event.value = value; return send(event); }
 bool AlarmService::set_ambient(bool value) { Event event{}; event.type = EventType::ambient; event.value = value; return send(event); }
@@ -120,6 +130,10 @@ void AlarmService::apply(const clock_core::AlarmDecision& decision) {
     if (decision.stop_audio && !audio_->stop_alarm())
         ESP_LOGW("alarm", "dismissed durably; audio was already stopped/unavailable");
     publish();
+    if (ringing_) {
+        enrollment_active_ = false;
+        enrollment_expires_at_us_ = 0;
+    }
 }
 void AlarmService::publish() {
     const auto view = core_.view();
@@ -142,6 +156,7 @@ void AlarmService::report() const {
              clock_core::timezone_name(zone_.load()),persistence);
     ESP_LOGI("alarm", "settings brightness=%u ambient=%d volume=%u fault=%d",
              brightness_.load(),ambient_.load(),alarm_volume_.load(),settings_fault_.load());
+    ESP_LOGI("alarm", "physical tag enrollment=%s",enrollment_active_ ? "ARMED" : "OFF");
     if (dismissal_blocked_) ESP_LOGE("alarm", "active journal preserved but audio blocked: no production dismissal path");
 }
 bool AlarmService::persist_settings(const clock_core::ClockSettings& candidate) {
@@ -180,6 +195,11 @@ void AlarmService::run() {
     Event event{};
     while (true) {
         if (xQueueReceive(queue_,&event,portMAX_DELAY) != pdTRUE) continue;
+        if (enrollment_active_ && esp_timer_get_time() >= enrollment_expires_at_us_) {
+            enrollment_active_ = false;
+            enrollment_expires_at_us_ = 0;
+            ESP_LOGI("alarm", "physical tag enrollment expired");
+        }
         switch (event.type) {
         case EventType::tick:
             time_valid_ = event.time_valid; now_utc_ = event.now_utc;
@@ -217,6 +237,37 @@ void AlarmService::run() {
                      accepted && persist_settings(candidate) ? "accepted" : "rejected");
             break;
         }
+        case EventType::begin_enrollment:
+            if (core_.mutations_allowed()) {
+                enrollment_expires_at_us_ = esp_timer_get_time() + event.now_utc * 1000000LL;
+                enrollment_active_ = true;
+                ESP_LOGI("alarm", "physical tag enrollment armed for %lld seconds",
+                         static_cast<long long>(event.now_utc));
+            } else {
+                ESP_LOGW("alarm", "physical tag enrollment rejected: clock is not idle");
+            }
+            break;
+        case EventType::physical_tag:
+            if (core_.ringing()) {
+                apply(core_.handle_tag(event.tag));
+            } else if (enrollment_active_) {
+                auto candidate = settings_;
+                bool found = false;
+                for (uint8_t i = 0; i < candidate.tag_count; ++i)
+                    found |= clock_core::same_tag(candidate.tags[i],event.tag);
+                const bool accepted = found || candidate.tag_count < clock_core::max_tags;
+                if (accepted && !found) candidate.tags[candidate.tag_count++] = event.tag;
+                if (accepted && persist_settings(candidate)) {
+                    enrollment_active_ = false;
+                    enrollment_expires_at_us_ = 0;
+                    ESP_LOGI("alarm", "physical tag enrollment accepted");
+                } else {
+                    ESP_LOGE("alarm", "physical tag enrollment failed; window remains armed");
+                }
+            } else {
+                apply(core_.handle_tag(event.tag));
+            }
+            break;
         case EventType::remove_alarm: {
             auto candidate = settings_;
             uint8_t index = candidate.alarm_count;

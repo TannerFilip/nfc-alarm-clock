@@ -22,7 +22,7 @@
 extern "C" void app_main()
 {
     constexpr auto tag = "clock";
-    ESP_LOGI(tag, "NFC alarm clock milestone 4 / 0.4.0 / IDF %s", esp_get_idf_version());
+    ESP_LOGI(tag, "NFC alarm clock milestone 5 / 0.5.0 / IDF %s", esp_get_idf_version());
 #ifdef CONFIG_CLOCK_DEVELOPMENT_BUILD
     ESP_LOGW(tag, "DEVELOPMENT BUILD - not production firmware");
 #else
@@ -48,7 +48,7 @@ extern "C" void app_main()
     const auto nvs = clock_storage::initialize_nvs();
     ESP_LOGI(tag, "NVS initialization: %s (%s; never auto-erased)",
              nvs.ready() ? "READY" : "FAULT", esp_err_to_name(nvs.error));
-    ESP_LOGW(tag, "Milestone 4 persistence and time-limited local setup; physical NFC remains pending");
+    ESP_LOGW(tag, "Milestone 5 PN7160 integration under physical validation");
     start_bringup();
     while (true) {
         ESP_LOGI(tag, "uptime=%" PRIi64 "s memory=%s internal_free=%zu psram_free=%zu",

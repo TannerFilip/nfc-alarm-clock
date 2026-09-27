@@ -245,3 +245,38 @@ and alarm recovery remain manual checks. HTTP is confined to
 the temporary WPA2 AP with CSRF/Host/Origin protections; HTTPS and STA/LAN
 access are not implemented. Web mutation responses acknowledge bounded queue
 admission; confirm durable acceptance in clock status/logs.
+
+## Milestone 5 development increment, firmware 0.5.0
+
+Milestone 5 begins staged physical PN7160 integration. The implementation is
+present, the five-executable host suite passes, and both firmware profiles compile
+and pass their artifact checks. The user reports that the corrected development
+image identifies the controller at `0x28`, reads an NFC-A identifier and persists
+it through the explicit physical enrollment window. The exact board variant,
+3.3 V selection, straps and pin-level IRQ/VEN timing remain unverified.
+
+| Check | Result |
+| --- | --- |
+| Portable NCI framing/discovery tests | PASS; host CTest suite 5/5 |
+| Production firmware build/checker | PASS; app `0xf5cf0`, SHA-256 `9b528526381ddd293d13c8451557de12d28421455f52aa41706dc1ccf77c1a20` |
+| Development firmware build/checker | PASS; app `0xf6080`, SHA-256 `e2a972449dceaf8445eca080e9aa7c5d2078effeb92fa8704acd32f20806f0b9` |
+| `git diff --check` | PASS |
+| I2C variant and 3.3 V selection inspected | PENDING, physical |
+| Address straps and NCI-identified 0x28-0x2B address | PARTIAL; user log identifies NCI at `0x28`, straps not inspected |
+| VEN boot, active-high IRQ, CORE_RESET/CORE_INIT | PARTIAL; user log reaches NCI-ready state, no pin-level observation |
+| NFC-A identifier and held-tag de-duplication | PARTIAL; user reports corrected identifier read works; held-tag behavior PENDING |
+| Idle/time-limited physical enrollment | PASS, user-reported on corrected development image |
+| Unknown/enrolled tag dismissal path | PENDING, physical |
+| Active reboot recovery with physical tag | PENDING, physical |
+| Disconnected/reconnected reader recovery | PENDING, physical |
+| Production enabled-alarm gate | RETAINED pending all physical acceptance |
+
+The implementation policy is that IRQ waits occur without holding the shared I2C
+bus, all transactions and command waits are finite, and a reader fault/restart is
+independent of alarm state. Initial RF support is NFC-A only. A valid physical
+identifier is admitted through `submit_physical_tag` and reaches the same
+`AlarmCore::handle_tag` authorization path as development simulation; it cannot
+directly stop audio. See
+`docs/milestone-5.md` for exact build and physical acceptance steps. Replace the
+pending rows only with reproducible evidence and record whether each physical
+result was user-reported or agent-observed.

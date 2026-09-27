@@ -46,6 +46,9 @@ if elf.is_file():
     for marker in (b"NVS SETTINGS + JOURNAL", b"WIFI:T:WPA", b"SETUP TEXT - B1 FOR QR"):
         if marker not in artifact:
             errors.append(f"Missing Milestone 4 artifact marker {marker!r}")
+    for marker in (b"milestone 5 / 0.5.0", b"PN7160 NCI driver", b"physical NFC-A UID=", b"tag_enroll"):
+        if marker not in artifact:
+            errors.append(f"Missing Milestone 5 artifact marker {marker!r}")
     for marker in (b"/api/login", b"setup_session=", b"Setup secret"):
         if marker in artifact:
             errors.append(f"Removed setup-code artifact remains: {marker!r}")

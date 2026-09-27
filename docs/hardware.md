@@ -56,7 +56,16 @@ addresses above are expectations, not device identities established by probing.
   specifies 7-bit addresses 0x28–0x2B. Both address straps 0 imply **0x28**;
   0x50/0x51 are write/read address bytes, not 7-bit driver addresses. Inspect
   the delivered board's straps and confirm NCI communication before selecting
-  its final address. No address or PN532 substitute driver is implemented yet.
+  its final address. PN7160 uses NCI 2.0; a PN532 driver is not interchangeable.
+
+For Milestone 5, the PN7160 is an I2C follower. NCI packets are transferred
+without an additional host header or CRC and are bounded to 258 bytes including
+the three-byte NCI header. IRQ is the read-ready indication: do not issue a read
+until IRQ is active, and drain pending IRQ data before a command write. Header and
+payload may be read in split transactions, but every transaction must use the
+shared serialized bus and a finite deadline. Waiting for IRQ or VEN boot never
+holds the bus. On an I2C write NACK, resend the complete NCI frame only through a
+bounded reset/backoff path rather than continuing from a partial offset.
 
 Before milestone 2: confirm board marking, actual I2C pull-ups and
 addresses, OLED reset routing, and power arrangement. Before battery tests,
@@ -67,7 +76,8 @@ confirm the actual battery/power-path assembly and measure voltage at GPIO1.
 The user reports that the NFC board is now connected. No photo, I2C scan, strap
 reading, IRQ/VEN trace or NCI exchange has been supplied, so this does not yet
 confirm the I2C variant, 3.3 V selection, 0x28-0x2B address, or functional reader.
-Milestone 3 deliberately leaves GPIO15/16 unconfigured and does not send PN7160
-commands. A scan ACK, if present while the module is enabled, establishes only an
-I2C responder at that address. Physical integration must verify VEN sequencing,
-IRQ polarity/behavior and NCI reset/init against the delivered board.
+Milestone 5 development is introducing GPIO15/16 control and NCI commands. An
+I2C scan ACK, if present while the module is enabled, establishes only a responder
+at that address. Physical acceptance must independently verify VEN sequencing,
+the default active-high IRQ behavior, NCI reset/init and NFC-A discovery against
+the delivered board. None of those checks has yet been supplied or agent-observed.

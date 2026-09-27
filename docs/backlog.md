@@ -39,3 +39,15 @@ the architecture and agent instructions. Route it through the alarm state machin
 and durable dismissal journal, with tests for authorized use and bypass attempts.
 Until then, preserve the current NFC-only production policy and development-only
 simulation gate. Ordinary controls/configuration must never silently dismiss.
+
+## Physical tag enrollment UX
+
+Milestone 5 introduces a narrow 60-second enrollment window through `tag_enroll`
+and the temporary setup page. The final on-device interaction and review remain a
+design task. Enrollment must stay explicit, conspicuous and idle-only; normal
+background scans must never add a tag. The flow must report the identifier stored,
+reject duplicate/invalid identifiers, persist settings before confirming success,
+and cancel on timeout or alarm start. A reader fault must not extend the original
+60-second timeout. After the basic reader
+transport passes device validation, decide whether to add a deliberate physical
+control gesture and how the OLED should expose the active window.

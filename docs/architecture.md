@@ -1,13 +1,15 @@
 # Architecture and incremental delivery
 
-Milestones 1-3 are implemented and Milestone 4 persistence/local setup is in progress.
+Milestones 1-4 are implemented. Milestone 5 is a staged physical PN7160
+integration and remains a development increment until device acceptance.
 Milestone 2 has partial user-reported physical
 verification, including audible output at 5%; remaining acceptance is documented
 in `docs/validation.md`.
 `main/drivers/` contains I2C, RTC, controls, display, sensing and audio bring-up.
 `main/core/` contains portable calendar, alarm, scheduling, tag and control helpers.
 `alarm_service.cpp` owns alarm state on a dedicated task; `bringup.cpp` integrates
-bounded command events. Validated NVS and a time-limited SoftAP/web UI are integrated; physical NFC remains planned.
+bounded command events. Validated NVS and a time-limited SoftAP/web UI are integrated;
+the physical NFC transport is the current work.
 
 | Module | Responsibility |
 | --- | --- |
@@ -20,7 +22,7 @@ bounded command events. Validated NVS and a time-limited SoftAP/web UI are integ
 | `nfc` | Reader interface emits bounded tag IDs/status; production PN7160 NCI transport; separate development simulator |
 | `web_wifi` | Local HTML/CSS/JS assets, validated configuration requests, deliberate time-limited SoftAP; no STA/LAN listener yet |
 | `sensing` | BH1750 lux/dimming and calibrated ADC voltage; divider factor 2, no invented battery percentage |
-| `main` | Integration, bounded queues and status; milestone 4 persistence and setup integration today |
+| `main` | Integration, bounded queues and status; persistence, setup and staged PN7160 integration |
 
 The alarm task owns state. Hardware, NFC and web tasks submit typed events through
 bounded queues. Scheduling and audio never wait for network or NFC. I2C requests
@@ -98,6 +100,50 @@ asset.
 HTTPS and STA provisioning remain future work. Wi-Fi shutdown never changes alarm
 state, and setup stops if an alarm begins.
 
+## PN7160 transport and reader policy (Milestone 5)
+
+The PN7160 adapter uses portable NCI frame/parser helpers and an ESP-IDF transport
+state machine on the shared `i2c_bus`. The initial RF scope is passive
+NFC-A polling and extraction of bounded NFCID1 values. Other RF technologies,
+peer-to-peer, card emulation and cryptographic card authentication are outside
+this increment.
+
+- VEN boot, CORE_RESET, CORE_INIT, explicit ISO-DEP discovery mapping, discovery,
+  target selection and activation advance through a bounded, monotonic state
+  machine. All command/response waits have deadlines and failures enter delayed
+  retry rather than a tight loop.
+- IRQ is the read-ready signal. Firmware never holds the shared I2C lock while
+  waiting for IRQ, never performs a speculative read while IRQ is inactive, and
+  does not start a command write while unread IRQ data is pending. Each actual
+  transfer retains the bus's finite deadline.
+- NCI frames are carried as-is over I2C, without a private header or CRC. Receive
+  handling bounds the three-byte NCI header and payload before parsing. A failed
+  write retries the whole frame only through the reader recovery policy.
+- Reader faults and reinitialization are orthogonal to alarm state. They may
+  change NFC availability/status, but cannot dismiss, silence, clear or delay an
+  active occurrence; timekeeping, audio, controls and web processing continue.
+- A physical NFCID1 becomes the existing bounded `TagId` event and enters through
+  `AlarmService::submit_physical_tag`; normal operation then uses the same
+  `AlarmCore::handle_tag` authorization path as development simulation.
+  There is no physical-reader bypass around the frozen authorization snapshot or
+  durable dismissal journal. Unknown and malformed identifiers do not dismiss.
+- A continuously held tag is de-duplicated until removal/deactivation or a
+  bounded 1.5-second re-arm interval; event flooding must not starve the alarm
+  queue, and a rejected callback submission is retried rather than counted as
+  delivered.
+- Enrollment is a separate, conspicuous, idle-only and time-limited mode. Normal
+  discovery never mutates enrolled tags. Enrollment must persist settings before
+  reporting success, and it closes on timeout, successful enrollment or alarm
+  start. A reader fault does not extend the window: its original 60-second timeout
+  still bounds it. The console and temporary setup page expose the initial flow;
+  a dedicated OLED interaction remains a possible refinement.
+
+The production enabled-alarm gate remains in place until the delivered board's
+I2C variant, 3.3 V selection, address straps, VEN/IRQ behavior, NCI reset/init,
+tag discovery and enrolled/unknown dismissal behavior have been validated on the
+device. Compiling the driver or seeing an I2C ACK is not sufficient to remove the
+gate.
+
 ## Delivery gates
 
 1. **Built; user reports hardware working:** pinned build, memory/boot logging, architecture, flash instructions.
@@ -106,9 +152,15 @@ state, and setup stops if an alarm begins.
 3. **Built, host-tested and user-tested:** Portable core and simulator: host tests for scheduling, weekdays, DST gaps/folds,
    forward/backward clock changes, recovery, overlap, unknown/valid tags and bypass
    attempts. Fault-inject journal writes. Compile both development and production.
-4. **Current, built and host-tested; device validation pending:** deterministic settings validation/codec, checksum-protected NVS settings and journal, and bounded WPA2-protected local setup UI. Exercise reboot recovery, access control, bad requests, expiry and disconnection during alarm on-device.
-5. PN7160 NCI integration (board now connected but unverified): verify straps/address/voltage,
-   controller reset/init, tag discovery/enrollment and disconnected-reader recovery.
+4. **Built and host-tested; partially user-tested:** deterministic settings
+   validation/codec, checksum-protected NVS settings and journal, and bounded
+   WPA2-protected local setup UI. The user reports QR join and direct
+   configuration work; exercise reboot recovery, access control, bad requests,
+   expiry and disconnection during alarm on-device.
+5. **Current development increment; validation pending:** staged PN7160 NCI transport
+   and NFC-A reads. Verify straps/address/voltage, controller reset/init, held-tag
+   de-duplication, explicit enrollment, known/unknown dismissal, active reboot
+   recovery and disconnected-reader recovery before enabling production alarms.
 
 Every gate gets its own recorded build/test results and exact flash/manual tests.
 Successful compilation never marks a hardware gate passed.

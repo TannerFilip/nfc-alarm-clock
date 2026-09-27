@@ -19,7 +19,7 @@ enum class WebMutationType : uint8_t {
     timezone,
     alarm,
     remove_alarm,
-    enroll_tag,
+    begin_tag_enrollment,
     remove_tag,
     display,
     alarm_volume,

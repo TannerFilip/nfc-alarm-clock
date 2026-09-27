@@ -22,6 +22,8 @@ public:
     bool set_display(uint8_t brightness, bool ambient);
     bool set_device_name(const char* name, uint8_t length);
     bool submit_tag(const clock_core::TagId& tag);
+    bool submit_physical_tag(const clock_core::TagId& tag);
+    bool begin_tag_enrollment(uint32_t duration_seconds = 60);
     bool development_trigger();
     bool set_brightness(uint8_t value);
     bool set_ambient(bool value);
@@ -36,9 +38,10 @@ public:
     bool storage_fault() const { return storage_fault_; }
     bool settings_fault() const { return settings_fault_; }
     bool dismissal_blocked() const { return dismissal_blocked_; }
+    bool enrollment_active() const { return enrollment_active_; }
     const char* state_name() const;
 private:
-    enum class EventType : uint8_t { tick, status, configure, timezone, enroll, tag, trigger, remove_alarm, remove_tag, display, device_name,
+    enum class EventType : uint8_t { tick, status, configure, timezone, enroll, begin_enrollment, physical_tag, tag, trigger, remove_alarm, remove_tag, display, device_name,
                                      brightness, ambient, volume };
     struct Event {
         EventType type = EventType::status;
@@ -66,6 +69,8 @@ private:
     bool time_valid_ = false;
     int64_t now_utc_ = 0;
     std::atomic<bool> ringing_{false}, storage_fault_{false}, settings_fault_{false}, dismissal_blocked_{false};
+    std::atomic<bool> enrollment_active_{false};
+    int64_t enrollment_expires_at_us_ = 0;
     std::atomic<unsigned> active_count_{0}, missed_count_{0}, skipped_count_{0};
     std::atomic<unsigned> brightness_{79}, alarm_volume_{5};
     std::atomic<bool> ambient_{false};

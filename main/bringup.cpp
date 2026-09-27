@@ -9,6 +9,7 @@
 #include "drivers/sensing.hpp"
 #include "drivers/display.hpp"
 #include "drivers/audio.hpp"
+#include "drivers/pn7160.hpp"
 #include "esp_console.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -42,11 +43,23 @@ clock_hw::Controls controls(bus);
 clock_hw::Sensing sensing(bus);
 clock_hw::Display display(bus);
 clock_hw::Audio audio;
+clock_hw::Pn7160 nfc;
 clock_app::AlarmService alarm;
 clock_app::WebWifiService web;
 int brightness = 79;
 bool ambient = false, status_page = false;
-int nfc_address = -1;
+
+bool physical_tag(void*, const clock_core::TagId& tag) {
+    char uid[clock_core::max_tag_bytes * 2 + 1]{};
+    static constexpr char hex[] = "0123456789ABCDEF";
+    for (uint8_t i = 0; i < tag.size; ++i) {
+        uid[i * 2] = hex[tag.bytes[i] >> 4];
+        uid[i * 2 + 1] = hex[tag.bytes[i] & 0x0f];
+    }
+    const bool queued = alarm.submit_physical_tag(tag);
+    ESP_LOGI("pn7160", "physical NFC-A UID=%s %s",uid,queued ? "queued" : "queue full; will retry");
+    return queued;
+}
 
 int send(Command command) {
     if (!commands || xQueueSend(commands,&command,0) != pdTRUE) {
@@ -61,7 +74,7 @@ bool web_mutation(const clock_app::WebMutation& mutation, void*) {
     case Type::timezone: return alarm.set_timezone(mutation.zone);
     case Type::alarm: return alarm.configure(mutation.alarm);
     case Type::remove_alarm: return alarm.remove_alarm(mutation.alarm.id);
-    case Type::enroll_tag: return alarm.enroll(mutation.tag);
+    case Type::begin_tag_enrollment: return alarm.begin_tag_enrollment();
     case Type::remove_tag: return alarm.remove_tag(mutation.tag);
     case Type::display: return alarm.set_display(mutation.brightness,mutation.ambient_brightness);
     case Type::alarm_volume: return alarm.set_alarm_volume(mutation.volume);
@@ -103,6 +116,10 @@ int ambient_command(int argc, char** argv) {
     return send({CommandType::ambient,{},!std::strcmp(argv[1],"on")});
 }
 int alarm_status_command(int argc, char**) { return argc == 1 ? send({CommandType::alarm_status}) : 1; }
+int tag_enroll_command(int argc, char**) {
+    if (argc != 1) { std::puts("Usage: tag_enroll (then tap a physical card within 60 seconds)"); return 1; }
+    return send({CommandType::tag_enroll});
+}
 #ifdef CONFIG_CLOCK_SIMULATED_NFC
 int alarm_set_command(int argc, char** argv) {
     if (argc != 3 || std::strlen(argv[1]) != 5 || argv[1][2] != ':' || std::strlen(argv[2]) != 7)
@@ -129,25 +146,26 @@ int tag_command(CommandType type, int argc, char** argv) {
     if (argc != 2 || !clock_core::parse_tag(argv[1],command.tag)) return 1;
     return send(command);
 }
-int tag_enroll_command(int argc, char** argv) { return tag_command(CommandType::tag_enroll,argc,argv); }
 int simulated_tag_command(int argc, char** argv) { return tag_command(CommandType::simulated_tag,argc,argv); }
 int alarm_trigger_command(int argc, char**) { return argc == 1 ? send({CommandType::alarm_trigger}) : 1; }
 #endif
 void scan() {
     ESP_LOGI("i2c", "discovery SDA=8 SCL=9 at 100kHz; ACK does not establish device identity");
-    unsigned count = 0; nfc_address = -1;
+    unsigned count = 0;
     for (uint8_t a = 8; a < 120; ++a) {
+        if (a >= 0x28 && a <= 0x2b) continue; // PN7160 writes are IRQ-coordinated by its driver.
         auto err = bus.probe(a);
         if (err == ESP_OK) {
             ESP_LOGI("i2c", "ACK at 0x%02x",a); ++count;
-            if (a >= 0x28 && a <= 0x2b) nfc_address = a;
         }
         else if (err != ESP_ERR_NOT_FOUND) {
             ESP_LOGW("i2c", "scan stopped at 0x%02x: %s; check pull-ups/bus wiring",a,esp_err_to_name(err));
             break;
         }
     }
-    ESP_LOGI("i2c", "%u ACKs; expected OLED=3C RTC=68 light=23 encoder=36; PN7160 expected 28-2B but NCI not started",count);
+    const auto nfc_status = nfc.status();
+    ESP_LOGI("i2c", "%u non-NFC ACKs; expected OLED=3C RTC=68 light=23 encoder=36; PN7160 driver=%s address=%s",
+             count,clock_hw::Pn7160::state_name(nfc_status.state),nfc_status.address ? "NCI identified" : "not identified");
 }
 void format_time(char* text, size_t size, const char* format) {
     time_t now = std::time(nullptr);
@@ -158,13 +176,25 @@ void report() {
     char text[32] = "INVALID";
     if (timekeeping.valid()) format_time(text,sizeof(text),"%Y-%m-%dT%H:%M:%SZ");
     ESP_LOGI("status", "UTC=%s source=%s RTC=%s",text,timekeeping.source(),timekeeping.rtc_status());
-    ESP_LOGI("status", "OLED=%s encoder=%s audio=%s NFC=%s",display.online()?"OK":"MISSING/IO ERROR",controls.status(),audio.status(),
-             nfc_address < 0 ? "NOT SEEN / NCI NOT STARTED" : "I2C ACK ONLY / NCI NOT STARTED");
+    const auto nfc_status = nfc.status();
+    ESP_LOGI("status", "OLED=%s encoder=%s audio=%s NFC=%s address=%s0x%02x IRQ=%d errors=%lu/%lu restarts=%lu discovered=%lu activation_errors=%lu tags=%lu suppressed=%lu rejected=%lu",
+             display.online()?"OK":"MISSING/IO ERROR",controls.status(),audio.status(),
+             clock_hw::Pn7160::state_name(nfc_status.state),nfc_status.address ? "" : "unidentified/",
+             nfc_status.address,nfc_status.irq_high,
+             static_cast<unsigned long>(nfc_status.transport_errors),
+             static_cast<unsigned long>(nfc_status.protocol_errors),
+             static_cast<unsigned long>(nfc_status.restart_count),
+             static_cast<unsigned long>(nfc_status.discovery_notifications),
+             static_cast<unsigned long>(nfc_status.activation_errors),
+             static_cast<unsigned long>(nfc_status.tag_count),
+             static_cast<unsigned long>(nfc_status.suppressed_repeats),
+             static_cast<unsigned long>(nfc_status.callback_rejections));
     ESP_LOGI("status", "battery_mV=%d raw_ADC=%d calibrated=%d lux=%.1f (-1=unavailable); brightness=%d ambient=%d",
              sensing.battery_mv,sensing.raw_adc,sensing.calibrated,sensing.lux,brightness,ambient);
-    ESP_LOGI("status", "M4 alarm=%s active=%u missed=%u skipped=%u; NVS=%s setup_AP=%s",
+    ESP_LOGI("status", "M5 alarm=%s active=%u missed=%u skipped=%u; NVS=%s setup_AP=%s enrollment=%s",
              alarm.state_name(),alarm.active_count(),alarm.missed_count(),alarm.skipped_count(),
-             alarm.storage_fault()?"FAULT":"OK",web.active()?"ACTIVE":"OFF");
+             alarm.storage_fault()?"FAULT":"OK",web.active()?"ACTIVE":"OFF",
+             alarm.enrollment_active()?"ARMED":"OFF");
     alarm.request_status();
 }
 void render() {
@@ -193,13 +223,16 @@ void render() {
     }
 #ifdef CONFIG_CLOCK_SIMULATED_NFC
     if (alarm.ringing()) display.text(0,0,"DEV SIM ALARM RINGING");
+    else if (alarm.enrollment_active()) display.text(0,0,"TAP NFC TAG TO ENROLL");
     else display.text(0,0,"DEV SIM NFC - NVS");
 #elif defined(CONFIG_CLOCK_DEVELOPMENT_BUILD)
     if (alarm.ringing()) display.text(0,0,"DEV ALARM RINGING");
+    else if (alarm.enrollment_active()) display.text(0,0,"TAP NFC TAG TO ENROLL");
     else display.text(0,0,"DEVELOPMENT BUILD");
 #else
     if (alarm.ringing()) display.text(0,0,"ALARM RINGING - NFC REQUIRED");
-    else display.text(0,0,"M4 NVS + LOCAL SETUP");
+    else if (alarm.enrollment_active()) display.text(0,0,"TAP NFC TAG TO ENROLL");
+    else display.text(0,0,"M5 PN7160 VALIDATION");
 #endif
     char line[40];
     if (!status_page) {
@@ -211,7 +244,9 @@ void render() {
         display.text(0,32,line);
         std::snprintf(line,sizeof(line),"RTC %s",timekeeping.rtc_status()); display.text(0,42,line);
         std::snprintf(line,sizeof(line),"BAT %d MV  LUX %.0f",sensing.battery_mv,sensing.lux); display.text(0,51,line);
-        std::snprintf(line,sizeof(line),"ALARM %s NFC %s",alarm.state_name(),nfc_address < 0 ? "NO ACK" : "ACK ONLY");
+        const auto nfc_status = nfc.status();
+        std::snprintf(line,sizeof(line),"ALARM %s NFC %s",alarm.state_name(),
+                      nfc_status.discovery_active ? "READY" : clock_hw::Pn7160::state_name(nfc_status.state));
         display.text(0,59,line);
     } else {
         std::snprintf(line,sizeof(line),"ENCODER %s",controls.status()); display.text(0,12,line);
@@ -219,7 +254,9 @@ void render() {
         std::snprintf(line,sizeof(line),"BRIGHTNESS %d AUTO %s",brightness,ambient?"ON":"OFF"); display.text(0,32,line);
         std::snprintf(line,sizeof(line),"ADC %d  BAT %d MV",sensing.raw_adc,sensing.battery_mv); display.text(0,42,line);
         std::snprintf(line,sizeof(line),"ALARM %s ACTIVE %u",alarm.state_name(),alarm.active_count()); display.text(0,52,line);
-        display.text(0,59,"PN7160 NCI NOT STARTED");
+        const auto nfc_status = nfc.status();
+        std::snprintf(line,sizeof(line),"PN7160 %s %02X",clock_hw::Pn7160::state_name(nfc_status.state),nfc_status.address);
+        display.text(0,59,line);
     }
     display.present();
 }
@@ -231,6 +268,9 @@ void peripheral_task(void*) {
     ESP_LOGI("bringup", "audio driver: %s (speaker presence cannot be detected)",esp_err_to_name(audio.init()));
     const auto alarm_error = alarm.init(audio);
     ESP_LOGI("bringup", "alarm task: %s",esp_err_to_name(alarm_error));
+    const auto nfc_error = err == ESP_OK && alarm_error == ESP_OK
+        ? nfc.init(bus,physical_tag,nullptr) : ESP_ERR_INVALID_STATE;
+    ESP_LOGI("bringup", "PN7160 NCI driver: %s",esp_err_to_name(nfc_error));
     const auto web_error = alarm_error == ESP_OK ? web.init(web_ringing,nullptr,web_mutation,nullptr) : ESP_ERR_INVALID_STATE;
     ESP_LOGI("bringup", "time-limited setup service: %s",esp_err_to_name(web_error));
     brightness = static_cast<int>(alarm.brightness()); ambient = alarm.ambient();
@@ -243,6 +283,7 @@ void peripheral_task(void*) {
     unsigned observed_brightness = alarm.brightness(); bool observed_ambient = alarm.ambient();
     while (true) {
         const int64_t now_ms = esp_timer_get_time()/1000;
+        nfc.service(now_ms);
         web.service();
         const auto events = controls.poll(now_ms);
         if (controls.button2_down()) {
@@ -284,7 +325,7 @@ void peripheral_task(void*) {
             case CommandType::alarm_status: alarm.request_status(); break;
             case CommandType::alarm_set: alarm.configure(command.alarm); break;
             case CommandType::alarm_zone: alarm.set_timezone(command.zone); break;
-            case CommandType::tag_enroll: alarm.enroll(command.tag); break;
+            case CommandType::tag_enroll: alarm.begin_tag_enrollment(); break;
             case CommandType::simulated_tag: alarm.submit_tag(command.tag); break;
             case CommandType::alarm_trigger: alarm.development_trigger(); break;
             }
@@ -324,8 +365,8 @@ void console() {
         {.command="brightness",.help="Set and persist OLED contrast 1-255",.hint=nullptr,.func=brightness_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr},
         {.command="ambient",.help="persist ambient on|off",.hint=nullptr,.func=ambient_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
         ,{.command="alarm_status",.help="Report alarm-core state",.hint=nullptr,.func=alarm_status_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
+        ,{.command="tag_enroll",.help="Arm 60-second physical NFC enrollment while idle",.hint=nullptr,.func=tag_enroll_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
 #ifdef CONFIG_CLOCK_SIMULATED_NFC
-        ,{.command="tag_enroll",.help="DEV persistent: tag_enroll HEX_UID",.hint=nullptr,.func=tag_enroll_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
         ,{.command="alarm_zone",.help="DEV persistent: UTC|America/Los_Angeles",.hint=nullptr,.func=alarm_zone_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
         ,{.command="alarm_set",.help="DEV persistent: alarm_set HH:MM SMTWTFS mask (0/1)",.hint=nullptr,.func=alarm_set_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}
         ,{.command="alarm_trigger",.help="DEV: trigger now through alarm state machine",.hint=nullptr,.func=alarm_trigger_command,.argtable=nullptr,.func_w_context=nullptr,.context=nullptr}

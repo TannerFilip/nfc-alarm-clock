@@ -34,7 +34,7 @@ input,button,select{font:inherit;padding:.55rem;margin:.25rem 0}fieldset{margin:
 <div class="field">Weekdays<span class="hint">Select every day on which this alarm should ring.</span><div class="days"><label><input id="sun" type="checkbox">Sun</label><label><input id="mon" type="checkbox">Mon</label><label><input id="tue" type="checkbox">Tue</label><label><input id="wed" type="checkbox">Wed</label><label><input id="thu" type="checkbox">Thu</label><label><input id="fri" type="checkbox">Fri</label><label><input id="sat" type="checkbox">Sat</label></div></div>
 <label><input id="enabled" type="checkbox" checked> Alarm enabled</label>
 <button onclick="alarm()">Save alarm</button><button onclick="send('alarm-remove','id='+aid.value)">Remove alarm</button></fieldset>
-<fieldset><legend>Dismissal tag</legend><label class="field">Tag UID in hexadecimal<input id="tag" maxlength="20" placeholder="Example: 01020304"><span class="hint">This identifier is authorized to dismiss an active alarm. Enter hexadecimal digits only.</span></label><button onclick="send('enroll','tag='+tag.value)">Enroll tag</button><button onclick="send('tag-remove','tag='+tag.value)">Remove tag</button></fieldset>
+<fieldset><legend>Dismissal tag</legend><p class="hint">Arm enrollment, then tap the physical NFC card within 60 seconds. Unknown cards are never enrolled during normal operation.</p><button onclick="send('enroll','arm=1')">Enroll next tapped card</button><label class="field">UID to remove (hexadecimal)<input id="tag" maxlength="20" placeholder="Example: 01020304"><span class="hint">Removal still uses the identifier printed in the device log when the card was enrolled.</span></label><button onclick="send('tag-remove','tag='+tag.value)">Remove tag</button></fieldset>
 <fieldset><legend>Display and sound</legend><label class="field">OLED brightness (1–255)<input id="brightness" type="number" min="1" max="255" value="79"></label>
 <label><input id="ambient" type="checkbox"> Adjust brightness using the light sensor</label><button onclick="displayCfg()">Save display settings</button>
 <label class="field">Maximum alarm volume (1–5%)<input id="volume" type="number" min="1" max="5" value="5"><span class="hint">The alarm ramps up to this limit. Even 5% may be loud.</span></label><button onclick="send('volume','volume='+volume.value)">Save volume</button></fieldset>
@@ -43,7 +43,7 @@ input,button,select{font:inherit;padding:.55rem;margin:.25rem 0}fieldset{margin:
 </main><p id="msg"></p><script>
 let csrf='';const msg=document.querySelector('#msg');
 async function initialize(){let r=await fetch("/api/status");if(r.ok){let j=await r.json();csrf=j.csrf;msg.textContent="Ready";}else msg.textContent="Setup unavailable";}
-async function send(kind,body){if(!csrf){msg.textContent='Setup is still initializing.';return;}let r=await fetch('/api/config/'+kind,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Setup-CSRF':csrf},body});msg.textContent=r.ok?'Request queued. Check the clock status or serial log to confirm it was saved.':'Rejected: check the fields and clock state.';}
+async function send(kind,body){if(!csrf){msg.textContent='Setup is still initializing.';return;}let r=await fetch('/api/config/'+kind,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Setup-CSRF':csrf},body});msg.textContent=r.ok?(kind==='enroll'?'Enrollment armed for 60 seconds. Tap the card now.':'Request queued. Check the clock status or serial log to confirm it was saved.'):'Rejected: check the fields and clock state.';}
 function weekdayMask(){return [sun,mon,tue,wed,thu,fri,sat].reduce((mask,box,index)=>mask|(box.checked?1<<index:0),0);}
 function alarm(){let days=weekdayMask();if(!days){msg.textContent='Select at least one weekday.';return;}send('alarm','id='+aid.value+'&hour='+hour.value+'&minute='+minute.value+'&days='+days+'&enabled='+(enabled.checked?'1':'0'));}
 function displayCfg(){send('display', 'brightness='+brightness.value+'&ambient='+(ambient.checked?'1':'0'));}
@@ -302,8 +302,9 @@ esp_err_t WebWifiService::mutate(httpd_req_t* request) {
         mutation.type = WebMutationType::timezone;
         valid = field(body, "zone", value, sizeof(value)) && clock_core::parse_timezone(value, mutation.zone);
     } else if (std::strcmp(path, "/api/config/enroll") == 0) {
-        mutation.type = WebMutationType::enroll_tag;
-        valid = field(body, "tag", value, sizeof(value)) && clock_core::parse_tag(value, mutation.tag);
+        mutation.type = WebMutationType::begin_tag_enrollment;
+        uint32_t arm = 0;
+        valid = field(body, "arm", value, sizeof(value)) && parse_u32(value, 1, 1, arm);
     } else if (std::strcmp(path, "/api/config/tag-remove") == 0) {
         mutation.type = WebMutationType::remove_tag;
         valid = field(body, "tag", value, sizeof(value)) && clock_core::parse_tag(value, mutation.tag);
