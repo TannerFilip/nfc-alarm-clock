@@ -1,7 +1,12 @@
 # Architecture and incremental delivery
 
-Only milestone 1 is implemented. Module boundaries below are the plan for the
-next increments; empty driver implementations are deliberately not provided.
+Milestones 1 and 2 are implemented. Milestone 2 has partial user-reported physical
+verification, including audible output at 5%; remaining acceptance is documented
+in `docs/validation.md`.
+`main/drivers/` contains I2C, RTC, controls, display, sensing and audio bring-up.
+`main/core/` contains portable calendar and control helpers, and `bringup.cpp`
+owns their integration and serial commands. Alarm scheduling, persistence, NFC
+and web/Wi-Fi remain planned. The module responsibilities below guide those increments.
 
 | Module | Responsibility |
 | --- | --- |
@@ -14,7 +19,7 @@ next increments; empty driver implementations are deliberately not provided.
 | `nfc` | Reader interface emits bounded tag IDs/status; production PN7160 NCI transport; separate development simulator |
 | `web_wifi` | Local HTML/CSS/JS assets, validated configuration requests, deliberate setup mode and optional STA connection |
 | `sensing` | BH1750 lux/dimming and calibrated ADC voltage; divider factor 2, no invented battery percentage |
-| `main` | Integration, queues and status; milestone 1 boot diagnostics today |
+| `main` | Integration, queues and status; milestone 2 diagnostic integration today |
 
 The alarm task owns state. Hardware, NFC and web tasks submit typed events through
 bounded queues. Scheduling and audio never wait for network or NFC. I2C requests
@@ -82,8 +87,8 @@ change alarm state. Provisioning reset must preserve an active alarm journal.
 
 ## Delivery gates
 
-1. **Current:** pinned build, memory/boot logging, architecture, flash instructions.
-2. Shared I2C discovery and fault status; OLED, RTC, seesaw, buttons; explicit
+1. **Built; user reports hardware working:** pinned build, memory/boot logging, architecture, flash instructions.
+2. **Current, built; partially user-tested:** Shared I2C discovery and fault status; OLED, RTC, seesaw, buttons; explicit
    bounded low-volume I2S test; voltage and light sensing. Validate each on-device.
 3. Portable core and simulator: host tests for scheduling, weekdays, DST gaps/folds,
    forward/backward clock changes, recovery, overlap, unknown/valid tags and bypass

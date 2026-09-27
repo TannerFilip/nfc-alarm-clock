@@ -33,5 +33,7 @@
     "--background-index",
     "--query-driver=**",
     "--compile-commands-dir=/home/tanner/nfc-alarm-clock/build/m1"
-  ]
+  ],
+  "idf.port": "/dev/ttyUSB0",
+  "idf.flashType": "UART"
 }

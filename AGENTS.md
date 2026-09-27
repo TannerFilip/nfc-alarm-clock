@@ -12,11 +12,17 @@ occasional Wi-Fi time sync and a deliberate physical-action backup dismissal.
 The backup mechanism is undecided; update the dismissal policy explicitly when
 it is designed, rather than treating ordinary controls as an implicit override.
 
-Milestone 1 implements boot/memory diagnostics only. The user confirmed that it
+Milestone 2 adds peripheral bring-up, a serial console and host-tested calendar/control helpers.
+The user now reports OLED, encoder/light sensing and audio working; the original
+1% tone was simply too quiet, and the 5% diagnostic was audible. These are
+user-reported checks, not agent-observed measurements. RTC retention, battery
+voltage accuracy and the remaining manual fault checks are still outstanding.
+Milestone 1 implemented
+boot/memory diagnostics only. The user confirmed that it
 works on the physical device after commit `03fb405`. This is user-reported
 validation, not an agent-observed serial log or confirmation of every manual
-acceptance item. Peripheral drivers, alarms, simulated tag events and the web UI
-are not implemented yet. The PN7160 has not arrived as of this handoff.
+acceptance item. Alarm scheduling, simulated tag events and the web UI are not implemented yet.
+See `docs/milestone-2.md` for driver status and manual acceptance. The PN7160 has not arrived as of this handoff.
 
 ## Hardware is authoritative and must be preserved
 
@@ -99,6 +105,9 @@ idf.py -B build/m1 -D SDKCONFIG=build/m1/sdkconfig build
 python3 tools/check_build.py build/m1
 idf.py -B build/m1-dev -D SDKCONFIG=build/m1-dev/sdkconfig -D 'SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.development' build
 python3 tools/check_build.py build/m1-dev --development
+cmake -S tests -B build/host
+cmake --build build/host
+ctest --test-dir build/host --output-on-failure
 git -c core.whitespace=cr-at-eol diff --check
 ```
 

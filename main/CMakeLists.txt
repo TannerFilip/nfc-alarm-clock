@@ -1,4 +1,7 @@
-idf_component_register(SRCS "main.cpp"
+idf_component_register(SRCS "main.cpp" "core/calendar.cpp" "core/test_tone.cpp"
+                    "drivers/i2c_bus.cpp" "drivers/timekeeping.cpp"
+                    "drivers/controls.cpp" "drivers/sensing.cpp"
+                    "drivers/display.cpp" "drivers/audio.cpp" "bringup.cpp"
                     INCLUDE_DIRS "."
-                    PRIV_REQUIRES esp_psram spi_flash esp_timer)
+                    PRIV_REQUIRES esp_psram spi_flash esp_timer esp_driver_i2c esp_driver_gpio esp_adc esp_driver_i2s console)
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)

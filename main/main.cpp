@@ -9,6 +9,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "bringup.hpp"
 
 #if !CONFIG_IDF_TARGET_ESP32S3 || !CONFIG_ESPTOOLPY_OCT_FLASH || !CONFIG_SPIRAM_MODE_OCT
 #error "This firmware requires ESP32-S3 with octal flash and octal PSRAM"
@@ -20,7 +21,7 @@
 extern "C" void app_main()
 {
     constexpr auto tag = "clock";
-    ESP_LOGI(tag, "NFC alarm clock milestone 1 / 0.1.0 / IDF %s", esp_get_idf_version());
+    ESP_LOGI(tag, "NFC alarm clock milestone 2 / 0.2.0 / IDF %s", esp_get_idf_version());
 #ifdef CONFIG_CLOCK_DEVELOPMENT_BUILD
     ESP_LOGW(tag, "DEVELOPMENT BUILD - not production firmware");
 #else
@@ -43,9 +44,8 @@ extern "C" void app_main()
     if (!memory_ok) {
         ESP_LOGE(tag, "MEMORY MISMATCH: expected 33554432 flash / 16777216 PSRAM bytes");
     }
-    ESP_LOGW(tag, "Diagnostics only: time INVALID; peripherals NOT PROBED; NFC NOT INITIALIZED");
-    ESP_LOGW(tag, "Scheduling, audio, display, storage and networking are not implemented yet");
-    // No GPIO writes, radio initialization, flash settings writes, or audio in M1.
+    ESP_LOGW(tag, "Peripheral diagnostics: no alarms, persistent settings, networking or NFC yet");
+    start_bringup();
     while (true) {
         ESP_LOGI(tag, "uptime=%" PRIi64 "s memory=%s internal_free=%zu psram_free=%zu",
                  esp_timer_get_time() / 1000000, memory_ok ? "OK" : "FAULT",

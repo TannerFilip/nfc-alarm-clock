@@ -1,4 +1,4 @@
-"""Check a generated M1 build configuration; does not exercise hardware."""
+"""Check a generated firmware build configuration; does not exercise hardware."""
 import argparse
 from pathlib import Path
 
