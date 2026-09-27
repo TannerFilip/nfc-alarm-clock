@@ -98,6 +98,10 @@ class AlarmCore {
 public:
     explicit AlarmCore(AlarmStorage& storage) : storage_(storage) {}
     AlarmDecision initialize();
+    bool restore_configuration(TimeZone zone, const AlarmDefinition* alarms, uint8_t alarm_count,
+                               const TagId* tags, uint8_t tag_count);
+    bool replace_configuration(TimeZone zone, const AlarmDefinition* alarms, uint8_t alarm_count,
+                               const TagId* tags, uint8_t tag_count);
     bool upsert_alarm(const AlarmDefinition& alarm);
     bool set_timezone(TimeZone zone);
     bool enroll(const TagId& tag);
@@ -114,6 +118,8 @@ private:
     void add_history(PersistentAlarmState& state, const Occurrence& occurrence) const;
     bool active_contains(const PersistentAlarmState& state, const Occurrence& occurrence) const;
     void capture_authorization(PersistentAlarmState& state) const;
+    bool install_configuration(TimeZone zone, const AlarmDefinition* alarms, uint8_t alarm_count,
+                               const TagId* tags, uint8_t tag_count);
     AlarmStorage& storage_;
     PersistentAlarmState state_{};
     std::array<AlarmDefinition,max_alarms> alarms_{};

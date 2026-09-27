@@ -6,6 +6,7 @@ public:
     explicit Display(I2cBus& bus) : bus_(bus) {}
     void clear();
     void text(int x, int y, const char* value, int scale = 1);
+    bool wifi_qr(const char* ssid, const char* password, int x = 0, int y = 0);
     void present() { pending_ = true; }
     void service(int64_t now_ms, uint8_t contrast);
     bool online() const { return online_; }

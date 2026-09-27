@@ -202,3 +202,46 @@ path but was not agent-observed; the exact remaining manual cases were not repor
 The PN7160 board is connected, but no strap/address/IRQ/VEN/NCI result has been
 supplied. GPIO15/16 remain untouched and physical NFC dismissal
 is not implemented. Follow `docs/milestone-3.md` and the README for manual checks.
+
+## Milestone 4 increment, firmware 0.4.0
+
+Implemented and host-tested deterministic settings validation/serialization,
+atomic configuration replacement, bounded configurable alarm volume, separate
+checksum-protected NVS settings/journal records, and a time-limited WPA2-protected
+SoftAP web UI.
+
+| Check | Result |
+| --- | --- |
+| Settings bounds, canonical form and duplicate IDs/tags | PASS |
+| Settings stable little-endian encode/decode and CRC corruption | PASS |
+| Unsupported settings schema preserved/rejected | PASS |
+| Enabled alarm without enrolled tag | Rejected |
+| Atomic pre-recovery configuration and ringing mutation rejection | PASS |
+| Alarm volume 1-5% bounds and ramp | PASS |
+| Host CTest suite | PASS, 4/4 executables |
+| Production firmware build/checker | PASS, 0xf3970-byte application |
+| Development firmware build/checker | PASS, 0xf3da0-byte application |
+| NVS/setup artifact markers | Present in both profiles |
+| Simulator artifact markers | Absent production; present development |
+| Production active-journal safety marker | Present production; absent development |
+
+Final application SHA-256 values:
+
+```text
+production  e46048b752bb6a2636823d3fe8ef55e873a98492a90090c27b36549e64a9a505
+development d4aeafb518780fef8f40a892de7e3876590ade711afec2f47de45d3522d224af
+```
+
+The NVS implementation uses explicit encodings rather than raw C++ object layout,
+compares before writes, commits changed records, and never automatically erases a
+full, corrupt or newer-format partition. Production rejects new enabled schedules
+and suppresses enabled development schedules loaded from NVS because physical NFC
+dismissal does not exist yet.
+
+The user reports that the current Milestone 4 QR join, WPA2 connection and direct
+browser configuration page work on the physical device. This was not agent-observed. AP expiry,
+configuration persistence, alarm-time disconnection, physical reboot persistence
+and alarm recovery remain manual checks. HTTP is confined to
+the temporary WPA2 AP with CSRF/Host/Origin protections; HTTPS and STA/LAN
+access are not implemented. Web mutation responses acknowledge bounded queue
+admission; confirm durable acceptance in clock status/logs.

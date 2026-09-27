@@ -24,6 +24,7 @@ expected = {
     "SPIRAM_SPEED": "80",
     "SPIRAM_MEMTEST": "y",
     "PARTITION_TABLE_CUSTOM": "y",
+    "LOG_DYNAMIC_LEVEL_CONTROL": "y",
 }
 errors = [f"{key}: expected {value}, got {config.get('CONFIG_' + key)}"
           for key, value in expected.items() if config.get("CONFIG_" + key) != value]
@@ -37,11 +38,20 @@ for name in ("nfc-alarm-clock.bin", "nfc-alarm-clock.elf",
         errors.append(f"Missing/empty artifact: {name}")
 elf = args.build / "nfc-alarm-clock.elf"
 if elf.is_file():
-    simulator_markers = (b"nfc_sim", b"DEV SIM NFC - RAM ONLY")
+    simulator_markers = (b"nfc_sim", b"DEV SIM NFC - NVS")
     artifact = elf.read_bytes()
     for marker in simulator_markers:
         if (marker in artifact) != args.development:
             errors.append(f"Simulator artifact gate mismatch for {marker!r}")
+    for marker in (b"NVS SETTINGS + JOURNAL", b"WIFI:T:WPA", b"SETUP TEXT - B1 FOR QR"):
+        if marker not in artifact:
+            errors.append(f"Missing Milestone 4 artifact marker {marker!r}")
+    for marker in (b"/api/login", b"setup_session=", b"Setup secret"):
+        if marker in artifact:
+            errors.append(f"Removed setup-code artifact remains: {marker!r}")
+    production_block = b"active journal blocked and silenced"
+    if (production_block in artifact) == args.development:
+        errors.append("Production active-journal dismissal gate mismatch")
 if errors:
     raise SystemExit("\n".join(errors))
 print("PASS: ESP32-S3 memory configuration, build profile and firmware artifacts")

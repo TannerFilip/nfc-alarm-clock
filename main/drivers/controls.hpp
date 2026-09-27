@@ -9,6 +9,7 @@ public:
     esp_err_t init_buttons();
     ControlEvents poll(int64_t now_ms);
     const char* status() const { return online_ ? "OK" : "MISSING/IO ERROR"; }
+    bool button2_down() const { return buttons_[1].pressed(); }
 private:
     bool init_encoder();
     bool read_seesaw(uint8_t base, uint8_t reg, uint8_t* data, size_t size);

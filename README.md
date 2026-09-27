@@ -1,13 +1,14 @@
 # NFC-dismiss alarm clock firmware
 
-Milestone 3: portable alarm core and development-only simulated NFC. **Not yet a
-production-operational alarm clock.**
+Milestone 4: durable settings and time-limited local web setup. **Physical NFC
+dismissal is not implemented yet.**
 The user confirmed milestone 1 works on-device. Milestone 2 has not been flashed
 or physically verified by the agent. The user reports the OLED, encoder/light
 sensing and 5% audio test work. The PN7160 board is now connected, but its straps,
-VEN/IRQ behavior and NCI communication remain unverified. Milestone 3 builds and
-host tests pass. The user reports its development alarm sounded and was dismissed
-through the enrolled simulated-tag path on the device.
+VEN/IRQ behavior and NCI communication remain unverified. Milestone 3 builds and host tests pass; the user reports its development
+alarm
+sounded and was dismissed through the enrolled simulated-tag path on the device.
+Milestone 4 builds and host tests pass but has not been physically tested.
 
 ## Build and flash
 
@@ -51,8 +52,8 @@ idf.py -B build/m1-dev -D SDKCONFIG=build/m1-dev/sdkconfig -p /dev/ttyUSB0 flash
 ```
 
 This prints the development/simulation banner on serial and OLED and enables the
-RAM-only Milestone 3 alarm demo. The `build/m1` and `build/m1-dev` directory names
-are retained for VS Code compatibility; they build the current milestone 3 source.
+Milestone 4 NVS-backed alarm demo. The `build/m1` and `build/m1-dev` directory names
+are retained for VS Code compatibility; they build the current milestone 4 source.
 Never ship the development profile. To use the extension's
 Build/Flash buttons instead, the checked-in workspace settings currently select the
 development profile: `idf.buildPath` is `${workspaceFolder}/build/m1-dev`, and
@@ -61,11 +62,31 @@ development profile: `idf.buildPath` is `${workspaceFolder}/build/m1-dev`, and
 the UART port. The CLI commands above are the reference workflow.
 These development build settings are already supplied in `.vscode/settings.json`.
 
+
+## Milestone 4 local setup acceptance
+
+Milestone 4 stores validated settings and the alarm journal separately in NVS.
+While the clock is idle, hold Button 2 for three seconds. The OLED shows a
+time-limited Wi-Fi join QR code and setup URL. Scan the code with a phone camera,
+join the network and browse to `http://192.168.4.1/`; the configuration page opens
+directly with no second setup code. Button 1 switches between the QR screen and a
+text fallback containing the SSID and 12-character password.
+The generated credentials use an alphabet without ambiguous glyphs and are never
+written to the serial log. The page has no external assets and the AP expires
+after 15 minutes.
+
+Use the development profile for enabled-alarm testing because physical PN7160
+dismissal is still absent. Production accepts general settings but rejects enabled
+schedules and suppresses any enabled development schedules found in NVS without
+erasing them. Full reboot, access-control, expiry and recovery checks are in
+[Milestone 4](docs/milestone-4.md).
+
 ## Milestone 3 development acceptance
 
-Use only the development profile for this demo. Its schedule, timezone, enrolled
-tag and journal are RAM-only and disappear on reset; the production profile does
-not contain these mutation/simulation commands. Set valid UTC first, then run:
+Use only the development profile for this simulated-dismissal demo. Its schedule,
+timezone, enrolled tags and journal now persist in NVS; the production profile
+does not contain the serial mutation/simulation commands and rejects enabled
+schedules until physical NFC exists. Set valid UTC first, then run:
 
 ```text
 tag_enroll 01020304
@@ -109,7 +130,7 @@ Follow the power/flash instructions above. Open the UART console at 115200 baud.
 Type `help` at `clock>` to list commands. Press Enter if periodic status logging
 has displaced the prompt. Each command queues work; the log reports its result.
 
-1. Check the current milestone **3 / 0.3.0** banner and `memory=OK` (33554432 bytes flash,
+1. Check the current milestone **4 / 0.4.0** banner and `memory=OK` (33554432 bytes flash,
    16777216 bytes PSRAM). Production must report simulation disabled; development
    must show a development/simulation warning on serial and OLED.
 2. Run `i2c_scan`. Expect ACKs at **0x23, 0x36, 0x3C, 0x68** for the installed

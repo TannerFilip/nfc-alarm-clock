@@ -49,5 +49,9 @@ int main() {
     assert(ramp_energy[0] > 0 && ramp_energy[0] < ramp_energy[1] && ramp_energy[1] < ramp_energy[2]);
     assert(std::abs(alarm_tone_sample(31LL*test_sample_rate+1234)) ==
            std::abs(alarm_tone_sample(61LL*test_sample_rate+1234)));
+    for (uint8_t maximum = 1; maximum <= 5; ++maximum)
+        assert(std::abs(alarm_tone_sample(31LL*test_sample_rate+100,maximum)) <= 327 * maximum);
+    for (uint8_t invalid : {uint8_t(0),uint8_t(6),uint8_t(255)})
+        assert(alarm_tone_sample(100,invalid) == 0);
     std::cout << "PASS: audio test bounds/fades and monotonic repeating alarm ramp\n";
 }

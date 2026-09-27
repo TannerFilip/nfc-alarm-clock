@@ -12,11 +12,13 @@ occasional Wi-Fi time sync and a deliberate physical-action backup dismissal.
 The backup mechanism is undecided; update the dismissal policy explicitly when
 it is designed, rather than treating ordinary controls as an implicit override.
 
-Milestone 3 adds the portable alarm core, weekday/DST scheduling, journal failure
-semantics, a dedicated alarm-owner task, a controlled audio ramp and a development-
-only simulated NFC path. Device-side Milestone 3 configuration and its journal are
-deliberately RAM-only until Milestone 4 adds validated NVS and the protected web UI;
-production exposes no alarm/tag mutation or simulated-tag commands yet.
+Milestone 4 adds deterministic validated settings, separate checksum-protected NVS
+settings and alarm-journal records, configurable bounded alarm volume, and a
+time-limited WPA2 SoftAP with a local no-CDN web UI. The user reports the QR
+join and direct configuration page work on-device; this was not agent-observed.
+Production exposes the protected web
+configuration path but rejects enabled schedules until physical NFC dismissal exists;
+development retains the simulated tag path.
 Milestone 2 added peripheral bring-up, a serial console and host-tested calendar/control helpers.
 The user now reports OLED, encoder/light sensing and audio working; the original
 1% tone was simply too quiet, and the 5% diagnostic was audible. These are
@@ -32,8 +34,9 @@ communication have not been verified from a log or by the agent. The user report
 the development alarm sounded and stopped through the enrolled simulated-tag path;
 this is user-reported on-device validation, not a physical PN7160 read. Milestone 3
 leaves GPIO15/16 untouched; an I2C ACK is presence evidence only. See
-`docs/milestone-3.md` for status and manual acceptance. The web UI, NVS persistence
-and physical PN7160 NCI driver are not implemented yet.
+`docs/milestone-3.md` for status and manual acceptance. The physical PN7160 NCI driver, STA/SNTP and HTTPS are not implemented yet.
+Milestone 4 NVS persistence, setup expiry, fault handling and reboot recovery still
+require on-device acceptance.
 
 ## Hardware is authoritative and must be preserved
 
@@ -90,15 +93,17 @@ and physical PN7160 NCI driver are not implemented yet.
 - Use schema-versioned, validated, bounded persistent settings and enrolled tags.
   Avoid unnecessary flash writes and never silently erase settings on a load error.
 - Serve a small local HTML/CSS/JavaScript UI with no external assets or CDN.
-  Require deliberate Wi-Fi setup and protected configuration access; do not log
-  credentials or add unauthenticated configuration/dismissal endpoints.
+  Require deliberate Wi-Fi setup and keep configuration confined to the time-limited
+  WPA2 AP with Host, Origin and CSRF checks; do not log credentials or expose
+  configuration/dismissal endpoints on STA or LAN.
 - Do not call the clock tamper-proof or tag identifiers cryptographic authentication.
 
 ## Build and dependency workflow
 
 ESP-IDF is pinned to **v6.1**, commit
-`fff9895c82d744c7237be8847347bdd1b07c6643`. No third-party components or Arduino
-are currently used. Verify real APIs against dependency sources/documentation;
+`fff9895c82d744c7237be8847347bdd1b07c6643`. Espressif `qrcode` 0.2.0 is the
+only managed third-party component and is exact-pinned in `main/idf_component.yml`
+and `dependencies.lock`; Arduino is not used. Verify real APIs against dependency sources/documentation;
 pin any added dependency and compile it. Arduino is acceptable only with a clear
 benefit and verified compatibility. Do not upgrade the SDK incidentally.
 

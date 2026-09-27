@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "bringup.hpp"
+#include "nvs_storage.hpp"
 
 #if !CONFIG_IDF_TARGET_ESP32S3 || !CONFIG_ESPTOOLPY_OCT_FLASH || !CONFIG_SPIRAM_MODE_OCT
 #error "This firmware requires ESP32-S3 with octal flash and octal PSRAM"
@@ -21,14 +22,14 @@
 extern "C" void app_main()
 {
     constexpr auto tag = "clock";
-    ESP_LOGI(tag, "NFC alarm clock milestone 3 / 0.3.0 / IDF %s", esp_get_idf_version());
+    ESP_LOGI(tag, "NFC alarm clock milestone 4 / 0.4.0 / IDF %s", esp_get_idf_version());
 #ifdef CONFIG_CLOCK_DEVELOPMENT_BUILD
     ESP_LOGW(tag, "DEVELOPMENT BUILD - not production firmware");
 #else
     ESP_LOGI(tag, "PRODUCTION profile: simulated dismissal disabled");
 #endif
 #ifdef CONFIG_CLOCK_SIMULATED_NFC
-    ESP_LOGW(tag, "SIMULATED NFC selected; event implementation pending milestone 3");
+    ESP_LOGW(tag, "SIMULATED NFC selected; development tag injection enabled");
 #endif
     esp_chip_info_t chip{};
     esp_chip_info(&chip);
@@ -44,7 +45,10 @@ extern "C" void app_main()
     if (!memory_ok) {
         ESP_LOGE(tag, "MEMORY MISMATCH: expected 33554432 flash / 16777216 PSRAM bytes");
     }
-    ESP_LOGW(tag, "Milestone 3 alarm core; persistent settings, networking and physical NFC remain pending");
+    const auto nvs = clock_storage::initialize_nvs();
+    ESP_LOGI(tag, "NVS initialization: %s (%s; never auto-erased)",
+             nvs.ready() ? "READY" : "FAULT", esp_err_to_name(nvs.error));
+    ESP_LOGW(tag, "Milestone 4 persistence and time-limited local setup; physical NFC remains pending");
     start_bringup();
     while (true) {
         ESP_LOGI(tag, "uptime=%" PRIi64 "s memory=%s internal_free=%zu psram_free=%zu",

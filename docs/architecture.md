@@ -1,12 +1,13 @@
 # Architecture and incremental delivery
 
-Milestones 1-3 are implemented. Milestone 2 has partial user-reported physical
+Milestones 1-3 are implemented and Milestone 4 persistence/local setup is in progress.
+Milestone 2 has partial user-reported physical
 verification, including audible output at 5%; remaining acceptance is documented
 in `docs/validation.md`.
 `main/drivers/` contains I2C, RTC, controls, display, sensing and audio bring-up.
 `main/core/` contains portable calendar, alarm, scheduling, tag and control helpers.
 `alarm_service.cpp` owns alarm state on a dedicated task; `bringup.cpp` integrates
-bounded command events. Durable NVS, physical NFC and web/Wi-Fi remain planned.
+bounded command events. Validated NVS and a time-limited SoftAP/web UI are integrated; physical NFC remains planned.
 
 | Module | Responsibility |
 | --- | --- |
@@ -17,9 +18,9 @@ bounded command events. Durable NVS, physical NFC and web/Wi-Fi remain planned.
 | `i2c_bus` | Single owner/serialized transactions with finite deadlines; peripheral failures and recovery backoff |
 | `display_controls` | SH1107 rendering, seesaw polling and debounced buttons; emits intent events |
 | `nfc` | Reader interface emits bounded tag IDs/status; production PN7160 NCI transport; separate development simulator |
-| `web_wifi` | Local HTML/CSS/JS assets, validated configuration requests, deliberate setup mode and optional STA connection |
+| `web_wifi` | Local HTML/CSS/JS assets, validated configuration requests, deliberate time-limited SoftAP; no STA/LAN listener yet |
 | `sensing` | BH1750 lux/dimming and calibrated ADC voltage; divider factor 2, no invented battery percentage |
-| `main` | Integration, bounded queues and status; milestone 3 diagnostic integration today |
+| `main` | Integration, bounded queues and status; milestone 4 persistence and setup integration today |
 
 The alarm task owns state. Hardware, NFC and web tasks submit typed events through
 bounded queues. Scheduling and audio never wait for network or NFC. I2C requests
@@ -31,9 +32,9 @@ RTC time means unsynchronized status, not a fabricated current time.
 ## Alarm policies implemented in the Milestone 3 core
 
 The portable core implements these rules behind an abstract journal. Host tests
-exercise recovery and injected journal failures. The development device demo uses
-a volatile RAM journal; production mutation/simulation commands stay compiled out
-until Milestone 4 connects the same interface to validated NVS.
+exercise recovery and injected journal failures. Firmware 0.4.0 connects the same interface to a checksum-protected NVS journal
+and loads a separate validated settings record before journal recovery. Development
+simulation commands remain compiled out of production.
 
 - States: `time_invalid`, `idle`, `ringing`, plus orthogonal device/storage faults.
   A restored active occurrence rings even when wall-clock time is invalid.
@@ -75,9 +76,9 @@ until Milestone 4 connects the same interface to validated NVS.
 Tag identifiers are not cryptographic authentication. Removing power stops the
 hardware; the clock is not tamper-proof. Battery duration remains a physical test.
 
-## Configuration and access plan (milestone 4)
+## Configuration and access implementation (milestone 4)
 
-Schema-versioned, size-bounded NVS records with validation for names, alarm count,
+Firmware 0.4.0 uses schema-versioned, size-bounded NVS records with validation for names, alarm count,
 weekday masks, times, timezone syntax, tag lengths/count, volume and brightness.
 Reject unsupported schema versions without erasing data. Write only changed
 settings; separate settings from the low-frequency occurrence journal.
@@ -86,24 +87,26 @@ Keep RTC in UTC; expose explicit valid/invalid/stale status and synchronization
 source. Use a curated timezone list mapping to tested POSIX TZ rules (IDF does
 not ship a full IANA zone database). Manual setting remains available offline.
 
-Deliberate long-button setup while idle opens a time-limited WPA2 SoftAP with a
-random per-device credential displayed locally. No default shared password or
-credential logging. Configuration needs authentication, request size/rate bounds,
-CSRF/origin checks and session expiry on both AP and LAN; prefer HTTPS and explain
-local certificate trust at setup. Never expose an unauthenticated LAN API. Normal
-operation needs no AP, internet, CDN or external server. Wi-Fi disconnects do not
-change alarm state. Provisioning reset must preserve an active alarm journal.
+A three-second Button 2 hold while idle opens a 15-minute WPA2 SoftAP with
+per-start credentials displayed only on the OLED as a Wi-Fi join QR with a
+Button 1 text fallback. The QR dependency is exact-pinned, and its
+credential-bearing payload is encoded with the component log tag temporarily
+suppressed. The local HTTP UI is confined to that AP and uses bounded requests
+and rate, a per-start CSRF token, and exact Host/Origin checks. The WPA2 password
+is the only user-entered setup credential. There is no LAN listener or external
+asset.
+HTTPS and STA provisioning remain future work. Wi-Fi shutdown never changes alarm
+state, and setup stops if an alarm begins.
 
 ## Delivery gates
 
 1. **Built; user reports hardware working:** pinned build, memory/boot logging, architecture, flash instructions.
 2. **Built; partially user-tested:** Shared I2C discovery and fault status; OLED, RTC, seesaw, buttons; explicit
    bounded low-volume I2S test; voltage and light sensing. Validate each on-device.
-3. **Current, built and host-tested; device demo unverified:** Portable core and simulator: host tests for scheduling, weekdays, DST gaps/folds,
+3. **Built, host-tested and user-tested:** Portable core and simulator: host tests for scheduling, weekdays, DST gaps/folds,
    forward/backward clock changes, recovery, overlap, unknown/valid tags and bypass
    attempts. Fault-inject journal writes. Compile both development and production.
-4. NVS validation/migration tests and local web UI for every requested setting;
-   exercise offline boot, access control, bad requests and disconnection during alarm.
+4. **Current, built and host-tested; device validation pending:** deterministic settings validation/codec, checksum-protected NVS settings and journal, and bounded WPA2-protected local setup UI. Exercise reboot recovery, access control, bad requests, expiry and disconnection during alarm on-device.
 5. PN7160 NCI integration (board now connected but unverified): verify straps/address/voltage,
    controller reset/init, tag discovery/enrollment and disconnected-reader recovery.
 

@@ -107,6 +107,43 @@ AlarmDecision AlarmCore::initialize() {
     }
     return {AlarmEvent::initialized,state_.active_count != 0,false};
 }
+bool AlarmCore::install_configuration(TimeZone zone, const AlarmDefinition* alarms,
+                                      uint8_t alarm_count, const TagId* tags, uint8_t tag_count) {
+    if ((zone != TimeZone::utc && zone != TimeZone::america_los_angeles) ||
+        alarm_count > max_alarms || tag_count > max_tags ||
+        (alarm_count && !alarms) || (tag_count && !tags)) return false;
+    bool enabled = false;
+    for (uint8_t i = 0; i < alarm_count; ++i) {
+        const auto& alarm = alarms[i];
+        if (alarm.id == 0 || alarm.hour > 23 || alarm.minute > 59 ||
+            (alarm.weekdays & 0x7f) == 0 || (alarm.weekdays & 0x80)) return false;
+        enabled |= alarm.enabled;
+        for (uint8_t earlier = 0; earlier < i; ++earlier)
+            if (alarms[earlier].id == alarm.id) return false;
+    }
+    if (enabled && tag_count == 0) return false;
+    for (uint8_t i = 0; i < tag_count; ++i) {
+        if (!valid_tag(tags[i])) return false;
+        for (uint8_t earlier = 0; earlier < i; ++earlier)
+            if (same_tag(tags[earlier],tags[i])) return false;
+    }
+    alarms_ = {};
+    enrolled_ = {};
+    for (uint8_t i = 0; i < alarm_count; ++i) alarms_[i] = alarms[i];
+    for (uint8_t i = 0; i < tag_count; ++i) enrolled_[i] = tags[i];
+    alarm_count_ = alarm_count;
+    enrolled_count_ = tag_count;
+    zone_ = zone;
+    return true;
+}
+bool AlarmCore::restore_configuration(TimeZone zone, const AlarmDefinition* alarms,
+                                      uint8_t alarm_count, const TagId* tags, uint8_t tag_count) {
+    return !initialized_ && install_configuration(zone,alarms,alarm_count,tags,tag_count);
+}
+bool AlarmCore::replace_configuration(TimeZone zone, const AlarmDefinition* alarms,
+                                      uint8_t alarm_count, const TagId* tags, uint8_t tag_count) {
+    return mutations_allowed() && install_configuration(zone,alarms,alarm_count,tags,tag_count);
+}
 bool AlarmCore::upsert_alarm(const AlarmDefinition& alarm) {
     if (!mutations_allowed() || enrolled_count_ == 0 || alarm.id == 0 || alarm.hour > 23 ||
         alarm.minute > 59 || (alarm.weekdays & 0x7f) == 0 || (alarm.weekdays & 0x80)) return false;

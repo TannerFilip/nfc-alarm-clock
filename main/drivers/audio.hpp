@@ -8,7 +8,7 @@ class Audio {
 public:
     esp_err_t init();
     bool request_test(uint8_t level = 1); // Only 1% or 5%; no backlog/retrigger while active.
-    bool start_alarm();
+    bool start_alarm(uint8_t maximum_percent = 5);
     bool stop_alarm();
     bool alarm_active() const;
     const char* status() const;

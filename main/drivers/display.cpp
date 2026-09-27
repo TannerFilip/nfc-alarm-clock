@@ -2,7 +2,13 @@
 #include "board.hpp"
 #include "esp_log.h"
 #include "freertos/task.h"
+#include "qrcode.h"
+#include <cstdio>
 #include <cstring>
+
+#if !CONFIG_LOG_DYNAMIC_LEVEL_CONTROL
+#error "QR credentials require dynamic log suppression"
+#endif
 
 namespace clock_hw {
 namespace {
@@ -43,6 +49,38 @@ void Display::text(int x, int y, const char* value, int scale) {
             break;
         }
     }
+}
+bool Display::wifi_qr(const char* ssid, const char* password, int x, int y) {
+    if (!ssid || !password) return false;
+    char payload[64]{};
+    const int length = std::snprintf(payload,sizeof(payload),"WIFI:T:WPA;S:%s;P:%s;;",ssid,password);
+    if (length < 0 || static_cast<size_t>(length) >= sizeof(payload)) return false;
+
+    struct Context { Display* display; int x; int y; bool rendered; } context{this,x,y,false};
+    esp_qrcode_config_t config{};
+    config.display_func_with_cb = [](esp_qrcode_handle_t code, void* opaque) {
+        auto& context = *static_cast<Context*>(opaque);
+        const int size = esp_qrcode_get_size(code);
+        constexpr int quiet = 4;
+        if (size <= 0 || size + quiet * 2 > 64) return;
+        for (int row = 0; row < size; ++row) {
+            for (int column = 0; column < size; ++column) {
+                if (esp_qrcode_get_module(code,column,row))
+                    context.display->pixel(context.x+quiet+column,context.y+quiet+row);
+            }
+        }
+        context.rendered = true;
+    };
+    config.max_qrcode_version = 4;
+    config.qrcode_ecc_level = ESP_QRCODE_ECC_MED;
+    config.user_data = &context;
+    // Espressif's wrapper logs its input at INFO; suppress that tag while the
+    // synchronous encoder handles the credential-bearing Wi-Fi payload.
+    const esp_log_level_t previous = esp_log_level_get("QRCODE");
+    esp_log_level_set("QRCODE",ESP_LOG_NONE);
+    const esp_err_t error = esp_qrcode_generate(&config,payload);
+    esp_log_level_set("QRCODE",previous);
+    return error == ESP_OK && context.rendered;
 }
 bool Display::init() {
     // IDF v6.1 reserves output GPIOs on configuration. Reconfiguring our own

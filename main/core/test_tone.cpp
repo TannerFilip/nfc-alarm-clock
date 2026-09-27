@@ -15,10 +15,10 @@ int16_t test_tone_sample(int frame, uint8_t level) {
     return static_cast<int16_t>(327.0f * level * envelope *
         std::sin(6.28318530718f * 440 * frame / test_sample_rate));
 }
-int16_t alarm_tone_sample(int64_t frame) {
-    if (frame < 0) return 0;
+int16_t alarm_tone_sample(int64_t frame, uint8_t maximum_percent) {
+    if (frame < 0 || maximum_percent < 1 || maximum_percent > 5) return 0;
     const float progress = std::min(1.0f,frame / static_cast<float>(alarm_ramp_frames));
-    const float peak = 327.0f * (1.0f + 4.0f * progress);
+    const float peak = 327.0f * (1.0f + (maximum_percent - 1.0f) * progress);
     const int phase_frame = static_cast<int>(frame % test_sample_rate);
     return static_cast<int16_t>(peak *
         std::sin(6.28318530718f * 440 * phase_frame / test_sample_rate));

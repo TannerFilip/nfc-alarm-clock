@@ -66,6 +66,22 @@ int main() {
 
     const TagId enrolled = tag("01020304"), unknown = tag("aabbccdd");
 
+    // Durable settings are installed atomically before journal recovery and can
+    // only be replaced while initialized, healthy and idle.
+    {
+        MemoryStorage storage;
+        AlarmCore core(storage);
+        const AlarmDefinition alarm{7,7,0,0x7f,true};
+        assert(core.restore_configuration(TimeZone::utc,&alarm,1,&enrolled,1));
+        assert(core.initialize().event == AlarmEvent::initialized);
+        assert(!core.restore_configuration(TimeZone::utc,nullptr,0,nullptr,0));
+        core.evaluate(true,utc("2026-09-28T06:59:00Z"));
+        assert(core.evaluate(true,utc("2026-09-28T07:00:00Z")).event == AlarmEvent::triggered);
+        assert(!core.replace_configuration(TimeZone::utc,nullptr,0,nullptr,0));
+        assert(core.handle_tag(enrolled).event == AlarmEvent::dismissed);
+        assert(core.replace_configuration(TimeZone::america_los_angeles,nullptr,0,nullptr,0));
+    }
+
     // Initial time acquisition never rings retroactively.
     {
         MemoryStorage storage;

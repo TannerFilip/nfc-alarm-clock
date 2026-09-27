@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <iterator>
 namespace clock_hw {
-namespace { constexpr uint8_t alarm_request = 0xff; }
+namespace { constexpr uint8_t alarm_request_flag = 0x80; }
 esp_err_t Audio::init() {
     i2s_chan_config_t cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0,I2S_ROLE_MASTER);
     cfg.dma_desc_num = 4; cfg.dma_frame_num = 256;
@@ -33,11 +33,12 @@ bool Audio::request_test(uint8_t level) {
     if (xQueueSend(queue_,&level,0) != pdTRUE) { mode_ = Mode::idle; return false; }
     return true;
 }
-bool Audio::start_alarm() {
+bool Audio::start_alarm(uint8_t maximum_percent) {
+    if (maximum_percent < 1 || maximum_percent > 5) return false;
     Mode expected = Mode::idle;
     if (!ready_ || !mode_.compare_exchange_strong(expected,Mode::alarm)) return false;
     stop_requested_ = false;
-    uint8_t request = alarm_request;
+    uint8_t request = alarm_request_flag | maximum_percent;
     if (xQueueSend(queue_,&request,0) != pdTRUE) { mode_ = Mode::idle; return false; }
     return true;
 }
@@ -58,8 +59,9 @@ void Audio::run() {
     uint8_t level;
     while (true) {
         if (xQueueReceive(queue_,&level,portMAX_DELAY) != pdTRUE) continue;
-        const bool alarm = level == alarm_request;
-        if (alarm) ESP_LOGW("audio", "alarm started: 440 Hz, 30s ramp from 1 to 5 percent digital peak");
+        const bool alarm = (level & alarm_request_flag) != 0;
+        const uint8_t maximum = alarm ? level & ~alarm_request_flag : level;
+        if (alarm) ESP_LOGW("audio", "alarm started: 440 Hz, 30s ramp from 1 to %u percent digital peak",unsigned(maximum));
         else ESP_LOGI("audio", "starting 2s test: 440 Hz, %u percent digital peak",unsigned(level));
         ESP_LOGI("audio", "configured I2S: Philips stereo 16-bit, LRC=16000 Hz GPIO%d, BCLK=512000 Hz GPIO%d, DIN=GPIO%d (not measured)",int(lrclk),int(bclk),int(audio_data));
         auto err = i2s_channel_enable(channel_);
@@ -69,7 +71,7 @@ void Audio::run() {
         for (; err == ESP_OK && first < frames && !(alarm && stop_requested_); first += 256) {
             const int count = static_cast<int>(std::min<int64_t>(256,frames-first));
             for (int j = 0; j < count; ++j) {
-                const int16_t sample = alarm ? clock_core::alarm_tone_sample(first+j) :
+                const int16_t sample = alarm ? clock_core::alarm_tone_sample(first+j,maximum) :
                     clock_core::test_tone_sample(static_cast<int>(first)+j,level);
                 samples[j*2] = samples[j*2+1] = sample;
             }
